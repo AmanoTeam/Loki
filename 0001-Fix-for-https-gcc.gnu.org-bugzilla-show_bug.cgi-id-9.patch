@@ -1,0 +1,28 @@
+From 22a32e2301bbca5affb6d641c9880d3affa801fd Mon Sep 17 00:00:00 2001
+From: Your Name <you@example.com>
+Date: Sun, 1 Jan 2023 00:45:11 -0300
+Subject: [PATCH] Fix for https://gcc.gnu.org/bugzilla//show_bug.cgi?id=99476
+
+---
+ libsanitizer/asan/asan_linux.cpp | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/libsanitizer/asan/asan_linux.cpp b/libsanitizer/asan/asan_linux.cpp
+index ad3693d5e..e8c5bb016 100644
+--- a/libsanitizer/asan/asan_linux.cpp
++++ b/libsanitizer/asan/asan_linux.cpp
+@@ -37,6 +37,11 @@
+ #include <unistd.h>
+ #include <unwind.h>
+ 
++// https://gcc.gnu.org/bugzilla//show_bug.cgi?id=99476
++#if SANITIZER_FREEBSD && !defined(PATH_MAX)
++#define PATH_MAX 1024
++#endif
++
+ #if SANITIZER_FREEBSD
+ #include <sys/link_elf.h>
+ #endif
+-- 
+2.39.0
+
