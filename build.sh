@@ -20,7 +20,7 @@ declare -r binutils_directory='/tmp/binutils-2.40'
 declare -r gcc_tarball='/tmp/gcc.tar.xz'
 declare -r gcc_directory='/tmp/gcc-12.2.0'
 
-declare -r cflags='-Wno-unused-command-line-argument -Os -s -DNDEBUG -flto'
+declare -r cflags='-Wno-unused-command-line-argument -Os -s -DNDEBUG'
 
 if ! [ -f "${gmp_tarball}" ]; then
 	wget --no-verbose 'https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz' --output-document="${gmp_tarball}"
