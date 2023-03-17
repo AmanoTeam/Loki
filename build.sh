@@ -103,10 +103,20 @@ declare -r targets=(
 	'amd64'
 	'arm64'
 	'i386'
+	'powerpc/powerpc'
+	'powerpc/powerpc64'
+	'riscv/riscv64'
+	'sparc64/sparc64'
 )
 
 for target in "${targets[@]}"; do
-	declare url="https://download.freebsd.org/snapshots/${target}/14.0-CURRENT/base.txz"
+	declare version='14.0-CURRENT'
+	
+	if [ "${target}" == 'sparc64/sparc64' ]; then
+		version='12.4-STABLE'
+	fi
+	
+	declare url="https://download.freebsd.org/snapshots/${target}/${version}/base.txz"
 	declare output="/tmp/freebsd-${target//\//_}-base.tar.xz"
 	
 	case "${target}" in
@@ -116,6 +126,14 @@ for target in "${targets[@]}"; do
 			declare triple='aarch64-unknown-freebsd14.0';;
 		i386)
 			declare triple='i386-unknown-freebsd14.0';;
+		powerpc/powerpc)
+			declare triple='powerpc-unknown-freebsd14.0';;
+		powerpc/powerpc64)
+			declare triple='powerpc64-unknown-freebsd14.0';;
+		riscv/riscv64)
+			declare triple='riscv64-unknown-freebsd14.0';;
+		sparc64/sparc64)
+			declare triple='sparc64-unknown-freebsd12.4';;
 	esac
 	
 	wget --no-verbose "${url}" --output-document="${output}"
@@ -137,12 +155,20 @@ for target in "${targets[@]}"; do
 	
 	pushd "${toolchain_directory}/${triple}/lib"
 	
-	chmod 777 './libc++.so'
-	echo 'GROUP ( ./libc++.so.1 ./libcxxrt.so )' > './libc++.so'
-	chmod 444 './libc++.so'
+	if [ "${target}" != 'sparc64/sparc64' ]; then
+		chmod 777 './libc++.so'
+		echo 'GROUP ( ./libc++.so.1 ./libcxxrt.so )' > './libc++.so'
+		chmod 444 './libc++.so'
+	fi
 	
 	chmod 777 './libc.so'
-	echo 'GROUP ( ./libc.so.7 ./libc_nonshared.a )' > './libc.so'
+	
+	if [ "${target}" == 'sparc64/sparc64' ]; then
+		echo 'GROUP ( ./libc.so.7 ./libc_nonshared.a ./libssp_nonshared.a )' > './libc.so'
+	else
+		echo 'GROUP ( ./libc.so.7 ./libc_nonshared.a )' > './libc.so'
+	fi
+	
 	chmod 444 './libc.so'
 	
 	find . -xtype l | xargs ls -l | grep '/lib/' | awk '{print "unlink "$9" && ln -s $(basename "$11") $(basename "$9")"}' | bash 
@@ -152,6 +178,13 @@ for target in "${targets[@]}"; do
 	cd "${gcc_directory}/build"
 	
 	rm --force --recursive ./*
+	
+	declare extra_configure_flags=''
+	
+	# https://reviews.freebsd.org/D20383
+	if [[ "${target}" == 'powerpc/powerpc64' ]]; then
+		extra_configure_flags+='--with-abi=elfv2'
+	fi
 	
 	../configure \
 		--target="${triple}" \
@@ -186,7 +219,8 @@ for target in "${targets[@]}"; do
 		--enable-ld \
 		--enable-gold \
 		--with-sysroot="${toolchain_directory}/${triple}" \
-		--with-native-system-header-dir='/include'
+		--with-native-system-header-dir='/include' \
+		${extra_configure_flags}
 	
 	LD_LIBRARY_PATH="${toolchain_directory}/lib" PATH="${PATH}:${toolchain_directory}/bin" make CFLAGS_FOR_TARGET="${cflags} -fno-stack-protector" CXXFLAGS_FOR_TARGET="${cflags} -fno-stack-protector" all --jobs="$(nproc)"
 	make install
