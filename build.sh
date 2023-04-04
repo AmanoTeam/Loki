@@ -3,7 +3,9 @@
 set -e
 set -u
 
-declare -r toolchain_tarball="$(pwd)/freebsd-cross.tar.xz"
+declare -r revision="$(git rev-parse --short HEAD)"
+
+declare -r toolchain_tarball="${PWD}/freebsd-cross.tar.xz"
 
 declare -r gmp_tarball='/tmp/gmp.tar.xz'
 declare -r gmp_directory='/tmp/gmp-6.2.1'
@@ -20,7 +22,7 @@ declare -r binutils_directory='/tmp/binutils-2.40'
 declare -r gcc_tarball='/tmp/gcc.tar.xz'
 declare -r gcc_directory='/tmp/gcc-12.2.0'
 
-declare -r cflags='-Wno-unused-command-line-argument -Os -s -DNDEBUG'
+declare -r cflags='-Os -s -DNDEBUG'
 
 if ! [ -f "${gmp_tarball}" ]; then
 	wget --no-verbose 'https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz' --output-document="${gmp_tarball}"
@@ -51,7 +53,7 @@ patch --directory="${gcc_directory}" --strip=1 < './0001-Fix-for-https-gcc.gnu.o
 
 while read file; do
 	sed -i "s/-O2/${cflags}/g" "${file}"
-done <<< "$(find '/tmp' -type 'f' -regex '.*configure')"
+done <<< "$(find '/tmp' -type 'f' -wholename '*configure')"
 
 [ -d "${gcc_directory}/build" ] || mkdir "${gcc_directory}/build"
 
@@ -110,30 +112,33 @@ declare -r targets=(
 )
 
 for target in "${targets[@]}"; do
-	declare version='14.0-CURRENT'
+	declare extra_configure_flags=''
 	
-	if [ "${target}" == 'sparc64/sparc64' ]; then
-		version='12.4-STABLE'
+	declare version='12.3-RELEASE'
+	
+	if [ "${target}" == 'riscv/riscv64' ]; then
+		extra_configure_flags+='--disable-libatomic'
+		version='13.0-RELEASE'
 	fi
 	
-	declare url="https://download.freebsd.org/snapshots/${target}/${version}/base.txz"
+	declare url="https://download.freebsd.org/releases/${target}/${version}/base.txz"
 	declare output="/tmp/freebsd-${target//\//_}-base.tar.xz"
 	
 	case "${target}" in
 		amd64)
-			declare triple='x86_64-unknown-freebsd14.0';;
+			declare triple='x86_64-unknown-freebsd12.3';;
 		arm64)
-			declare triple='aarch64-unknown-freebsd14.0';;
+			declare triple='aarch64-unknown-freebsd12.3';;
 		i386)
-			declare triple='i386-unknown-freebsd14.0';;
+			declare triple='i386-unknown-freebsd12.3';;
 		powerpc/powerpc)
-			declare triple='powerpc-unknown-freebsd14.0';;
+			declare triple='powerpc-unknown-freebsd12.3';;
 		powerpc/powerpc64)
-			declare triple='powerpc64-unknown-freebsd14.0';;
+			declare triple='powerpc64-unknown-freebsd12.3';;
 		riscv/riscv64)
-			declare triple='riscv64-unknown-freebsd14.0';;
+			declare triple='riscv64-unknown-freebsd13.0';;
 		sparc64/sparc64)
-			declare triple='sparc64-unknown-freebsd12.4';;
+			declare triple='sparc64-unknown-freebsd12.3';;
 	esac
 	
 	wget --no-verbose "${url}" --output-document="${output}"
@@ -147,7 +152,7 @@ for target in "${targets[@]}"; do
 		--enable-gold \
 		--enable-ld
 	
-	make all --jobs="$(nproc)"
+	make all --jobs=15 #"$(nproc)"
 	make install
 	
 	tar --directory="${toolchain_directory}/${triple}" --strip=2 --extract --file="${output}" './usr/lib' './usr/include'
@@ -155,7 +160,7 @@ for target in "${targets[@]}"; do
 	
 	pushd "${toolchain_directory}/${triple}/lib"
 	
-	if [ "${target}" != 'sparc64/sparc64' ]; then
+	if [ -f './libc++.so' ]; then
 		chmod 777 './libc++.so'
 		echo 'GROUP ( ./libc++.so.1 ./libcxxrt.so )' > './libc++.so'
 		chmod 444 './libc++.so'
@@ -163,28 +168,21 @@ for target in "${targets[@]}"; do
 	
 	chmod 777 './libc.so'
 	
-	if [ "${target}" == 'sparc64/sparc64' ]; then
-		echo 'GROUP ( ./libc.so.7 ./libc_nonshared.a ./libssp_nonshared.a )' > './libc.so'
-	else
+	if [ "${target}" == 'riscv/riscv64' ]; then
 		echo 'GROUP ( ./libc.so.7 ./libc_nonshared.a )' > './libc.so'
+	else
+		echo 'GROUP ( ./libc.so.7 ./libc_nonshared.a ./libssp_nonshared.a )' > './libc.so'
 	fi
 	
 	chmod 444 './libc.so'
 	
-	find . -xtype l | xargs ls -l | grep '/lib/' | awk '{print "unlink "$9" && ln -s $(basename "$11") $(basename "$9")"}' | bash 
+	find . -type l | xargs ls -l | grep '/lib/' | awk '{print "unlink "$9" && ln -s $(basename "$11") $(basename "$9")"}' | bash 
 	
 	pushd
 	
 	cd "${gcc_directory}/build"
 	
 	rm --force --recursive ./*
-	
-	declare extra_configure_flags=''
-	
-	# https://reviews.freebsd.org/D20383
-	if [[ "${target}" == 'powerpc/powerpc64' ]]; then
-		extra_configure_flags+='--with-abi=elfv2'
-	fi
 	
 	../configure \
 		--target="${triple}" \
@@ -194,7 +192,7 @@ for target in "${targets[@]}"; do
 		--with-mpc="${toolchain_directory}" \
 		--with-mpfr="${toolchain_directory}" \
 		--with-system-zlib \
-		--with-bugurl='https://github.com/AmanoTeam/FreeBSD-Cross/issues' \
+		--with-bugurl='https://github.com/AmanoTeam/fr33bsdcr0ss/issues' \
 		--enable-__cxa_atexit \
 		--enable-cet='auto' \
 		--enable-checking='release' \
@@ -218,14 +216,17 @@ for target in "${targets[@]}"; do
 		--without-headers \
 		--enable-ld \
 		--enable-gold \
+		--with-pic \
+		--with-gcc-major-version-only \
+		--with-pkgversion="fr33bsdcr0ss v0.1-${revision}" \
 		--with-sysroot="${toolchain_directory}/${triple}" \
 		--with-native-system-header-dir='/include' \
 		${extra_configure_flags}
 	
-	LD_LIBRARY_PATH="${toolchain_directory}/lib" PATH="${PATH}:${toolchain_directory}/bin" make CFLAGS_FOR_TARGET="${cflags} -fno-stack-protector" CXXFLAGS_FOR_TARGET="${cflags} -fno-stack-protector" all --jobs="$(nproc)"
+	LD_LIBRARY_PATH="${toolchain_directory}/lib" PATH="${PATH}:${toolchain_directory}/bin" make CFLAGS_FOR_TARGET="${cflags} -fno-stack-protector" CXXFLAGS_FOR_TARGET="${cflags} -fno-stack-protector" all --jobs=15 #"$(nproc)"
 	make install
 	
-	rm --recursive "${toolchain_directory}/lib/gcc/${triple}/12.2.0/include-fixed"
+	rm --recursive "${toolchain_directory}/lib/gcc/${triple}/12/include-fixed"
 done
 
 tar --directory="$(dirname "${toolchain_directory}")" --create --file=- "$(basename "${toolchain_directory}")" |  xz --threads=0 --compress -9 > "${toolchain_tarball}"
