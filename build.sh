@@ -22,7 +22,8 @@ declare -r binutils_directory='/tmp/binutils-2.40'
 declare -r gcc_tarball='/tmp/gcc.tar.xz'
 declare -r gcc_directory='/tmp/gcc-12.2.0'
 
-declare -r cflags='-Os -s -DNDEBUG'
+declare -r optflags='-Os'
+declare -r linkflags='-Wl,-s'
 
 if ! [ -f "${gmp_tarball}" ]; then
 	wget --no-verbose 'https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz' --output-document="${gmp_tarball}"
@@ -51,13 +52,9 @@ fi
 
 patch --directory="${gcc_directory}" --strip=1 < './0001-Fix-for-https-gcc.gnu.org-bugzilla-show_bug.cgi-id-9.patch' || true
 
-while read file; do
-	sed -i "s/-O2/${cflags}/g" "${file}"
-done <<< "$(find '/tmp' -type 'f' -wholename '*configure')"
-
 [ -d "${gcc_directory}/build" ] || mkdir "${gcc_directory}/build"
 
-declare -r toolchain_directory="/tmp/unknown-unknown-freebsd"
+declare -r toolchain_directory="/tmp/loki"
 
 [ -d "${gmp_directory}/build" ] || mkdir "${gmp_directory}/build"
 
@@ -66,7 +63,10 @@ cd "${gmp_directory}/build"
 ../configure \
 	--prefix="${toolchain_directory}" \
 	--enable-shared \
-	--enable-static
+	--enable-static \
+	CFLAGS="${optflags}" \
+	CXXFLAGS="${optflags}" \
+	LDFLAGS="${linkflags}"
 
 make all --jobs
 make install
@@ -79,7 +79,10 @@ cd "${mpfr_directory}/build"
 	--prefix="${toolchain_directory}" \
 	--with-gmp="${toolchain_directory}" \
 	--enable-shared \
-	--enable-static
+	--enable-static \
+	CFLAGS="${optflags}" \
+	CXXFLAGS="${optflags}" \
+	LDFLAGS="${linkflags}"
 
 make all --jobs
 make install
@@ -92,7 +95,10 @@ cd "${mpc_directory}/build"
 	--prefix="${toolchain_directory}" \
 	--with-gmp="${toolchain_directory}" \
 	--enable-shared \
-	--enable-static
+	--enable-static \
+	CFLAGS="${optflags}" \
+	CXXFLAGS="${optflags}" \
+	LDFLAGS="${linkflags}"
 
 make all --jobs
 make install
@@ -107,6 +113,7 @@ declare -r targets=(
 	'i386'
 	'powerpc/powerpc'
 	'powerpc/powerpc64'
+	'powerpc/powerpc64_elfv2'
 	'riscv/riscv64'
 	'sparc64/sparc64'
 )
@@ -119,9 +126,13 @@ for target in "${targets[@]}"; do
 	if [ "${target}" == 'riscv/riscv64' ]; then
 		extra_configure_flags+='--disable-libatomic'
 		version='13.0-RELEASE'
+	elif [ "${target}" == 'powerpc/powerpc64_elfv2' ]; then
+		# https://reviews.freebsd.org/D20383
+		extra_configure_flags+='--with-abi=elfv2'
+		version='13.0-RELEASE'
 	fi
 	
-	declare url="https://download.freebsd.org/releases/${target}/${version}/base.txz"
+	declare url="http://ftp-archive.freebsd.org/pub/FreeBSD-Archive/old-releases/$(cut -d '_' -f '1' <<< "${target}")/${version}/base.txz"
 	declare output="/tmp/freebsd-${target//\//_}-base.tar.xz"
 	
 	case "${target}" in
@@ -135,6 +146,8 @@ for target in "${targets[@]}"; do
 			declare triple='powerpc-unknown-freebsd12.3';;
 		powerpc/powerpc64)
 			declare triple='powerpc64-unknown-freebsd12.3';;
+		powerpc/powerpc64_elfv2)
+			declare triple='powerpc64-unknown-freebsd13.0';;
 		riscv/riscv64)
 			declare triple='riscv64-unknown-freebsd13.0';;
 		sparc64/sparc64)
@@ -150,9 +163,15 @@ for target in "${targets[@]}"; do
 		--target="${triple}" \
 		--prefix="${toolchain_directory}" \
 		--enable-gold \
-		--enable-ld
+		--enable-ld \
+		--enable-lto \
+		--disable-gprofng \
+		--with-static-standard-libraries \
+		CFLAGS="${optflags}" \
+		CXXFLAGS="${optflags}" \
+		LDFLAGS="${linkflags}"
 	
-	make all --jobs=15 #"$(nproc)"
+	make all --jobs="$(($(nproc) * 8))"
 	make install
 	
 	tar --directory="${toolchain_directory}/${triple}" --strip=2 --extract --file="${output}" './usr/lib' './usr/include'
@@ -168,7 +187,7 @@ for target in "${targets[@]}"; do
 	
 	chmod 777 './libc.so'
 	
-	if [ "${target}" == 'riscv/riscv64' ]; then
+	if [ "${target}" == 'riscv/riscv64' ] || [ "${target}" == 'powerpc/powerpc64_elfv2' ]; then
 		echo 'GROUP ( ./libc.so.7 ./libc_nonshared.a )' > './libc.so'
 	else
 		echo 'GROUP ( ./libc.so.7 ./libc_nonshared.a ./libssp_nonshared.a )' > './libc.so'
@@ -191,8 +210,7 @@ for target in "${targets[@]}"; do
 		--with-gmp="${toolchain_directory}" \
 		--with-mpc="${toolchain_directory}" \
 		--with-mpfr="${toolchain_directory}" \
-		--with-system-zlib \
-		--with-bugurl='https://github.com/AmanoTeam/fr33bsdcr0ss/issues' \
+		--with-bugurl='https://github.com/AmanoTeam/Loki/issues' \
 		--enable-__cxa_atexit \
 		--enable-cet='auto' \
 		--enable-checking='release' \
@@ -218,15 +236,33 @@ for target in "${targets[@]}"; do
 		--enable-gold \
 		--with-pic \
 		--with-gcc-major-version-only \
-		--with-pkgversion="fr33bsdcr0ss v0.1-${revision}" \
+		--with-pkgversion="Loki v0.1-${revision}" \
 		--with-sysroot="${toolchain_directory}/${triple}" \
 		--with-native-system-header-dir='/include' \
-		${extra_configure_flags}
+		${extra_configure_flags} \
+		CFLAGS="${optflags}" \
+		CXXFLAGS="${optflags}" \
+		LDFLAGS="${linkflags}"
 	
-	LD_LIBRARY_PATH="${toolchain_directory}/lib" PATH="${PATH}:${toolchain_directory}/bin" make CFLAGS_FOR_TARGET="${cflags} -fno-stack-protector" CXXFLAGS_FOR_TARGET="${cflags} -fno-stack-protector" all --jobs=15 #"$(nproc)"
+	LD_LIBRARY_PATH="${toolchain_directory}/lib" PATH="${PATH}:${toolchain_directory}/bin" make \
+		CFLAGS_FOR_TARGET="${optflags} ${linkflags}" \
+		CXXFLAGS_FOR_TARGET="${optflags} ${linkflags}" \
+		all --jobs="$(($(nproc) * 8))"
 	make install
 	
+	cd "${toolchain_directory}/${triple}/bin"
+	
+	for name in *; do
+		rm "${name}"
+		ln -s "../../bin/${triple}-${name}" "${name}"
+	done
+	
+	rm --recursive "${toolchain_directory}/share"
 	rm --recursive "${toolchain_directory}/lib/gcc/${triple}/12/include-fixed"
+	
+	patchelf --add-rpath '$ORIGIN/../../../../lib' "${toolchain_directory}/libexec/gcc/${triple}/12/cc1"
+	patchelf --add-rpath '$ORIGIN/../../../../lib' "${toolchain_directory}/libexec/gcc/${triple}/12/cc1plus"
+	patchelf --add-rpath '$ORIGIN/../../../../lib' "${toolchain_directory}/libexec/gcc/${triple}/12/lto1"
 done
 
 tar --directory="$(dirname "${toolchain_directory}")" --create --file=- "$(basename "${toolchain_directory}")" |  xz --threads=0 --compress -9 > "${toolchain_tarball}"
