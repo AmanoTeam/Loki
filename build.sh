@@ -1,11 +1,8 @@
 #!/bin/bash
 
-set -e
-set -u
+set -eu
 
 declare -r revision="$(git rev-parse --short HEAD)"
-
-declare -r toolchain_tarball="${PWD}/freebsd-cross.tar.xz"
 
 declare -r gmp_tarball='/tmp/gmp.tar.xz'
 declare -r gmp_directory='/tmp/gmp-6.2.1'
@@ -24,6 +21,8 @@ declare -r gcc_directory='/tmp/gcc-12.2.0'
 
 declare -r optflags='-Os'
 declare -r linkflags='-Wl,-s'
+
+source "./submodules/obggcc/toolchains/${1}.sh"
 
 if ! [ -f "${gmp_tarball}" ]; then
 	wget --no-verbose 'https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz' --output-document="${gmp_tarball}"
@@ -61,6 +60,7 @@ declare -r toolchain_directory="/tmp/loki"
 cd "${gmp_directory}/build"
 
 ../configure \
+	--host="${CROSS_COMPILE_TRIPLET}" \
 	--prefix="${toolchain_directory}" \
 	--enable-shared \
 	--enable-static \
@@ -76,6 +76,7 @@ make install
 cd "${mpfr_directory}/build"
 
 ../configure \
+	--host="${CROSS_COMPILE_TRIPLET}" \
 	--prefix="${toolchain_directory}" \
 	--with-gmp="${toolchain_directory}" \
 	--enable-shared \
@@ -92,6 +93,7 @@ make install
 cd "${mpc_directory}/build"
 
 ../configure \
+	--host="${CROSS_COMPILE_TRIPLET}" \
 	--prefix="${toolchain_directory}" \
 	--with-gmp="${toolchain_directory}" \
 	--enable-shared \
@@ -160,6 +162,7 @@ for target in "${targets[@]}"; do
 	rm --force --recursive ./*
 	
 	../configure \
+		--host="${CROSS_COMPILE_TRIPLET}" \
 		--target="${triple}" \
 		--prefix="${toolchain_directory}" \
 		--enable-gold \
@@ -204,6 +207,7 @@ for target in "${targets[@]}"; do
 	rm --force --recursive ./*
 	
 	../configure \
+		--host="${CROSS_COMPILE_TRIPLET}" \
 		--target="${triple}" \
 		--prefix="${toolchain_directory}" \
 		--with-linker-hash-style='gnu' \
@@ -236,13 +240,13 @@ for target in "${targets[@]}"; do
 		--enable-gold \
 		--with-pic \
 		--with-gcc-major-version-only \
-		--with-pkgversion="Loki v0.1-${revision}" \
+		--with-pkgversion="Loki v0.2-${revision}" \
 		--with-sysroot="${toolchain_directory}/${triple}" \
 		--with-native-system-header-dir='/include' \
 		${extra_configure_flags} \
 		CFLAGS="${optflags}" \
 		CXXFLAGS="${optflags}" \
-		LDFLAGS="${linkflags}"
+		LDFLAGS="-Wl,-rpath-link,${OBGGCC_TOOLCHAIN}/${CROSS_COMPILE_TRIPLET}/lib ${linkflags}"
 	
 	LD_LIBRARY_PATH="${toolchain_directory}/lib" PATH="${PATH}:${toolchain_directory}/bin" make \
 		CFLAGS_FOR_TARGET="${optflags} ${linkflags}" \
@@ -264,5 +268,3 @@ for target in "${targets[@]}"; do
 	patchelf --add-rpath '$ORIGIN/../../../../lib' "${toolchain_directory}/libexec/gcc/${triple}/12/cc1plus"
 	patchelf --add-rpath '$ORIGIN/../../../../lib' "${toolchain_directory}/libexec/gcc/${triple}/12/lto1"
 done
-
-tar --directory="$(dirname "${toolchain_directory}")" --create --file=- "$(basename "${toolchain_directory}")" |  xz --threads=0 --compress -9 > "${toolchain_tarball}"
