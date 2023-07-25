@@ -252,7 +252,7 @@ for target in "${targets[@]}"; do
 	LD_LIBRARY_PATH="${toolchain_directory}/lib" PATH="${PATH}:${toolchain_directory}/bin" make \
 		CFLAGS_FOR_TARGET="${optflags} ${linkflags}" \
 		CXXFLAGS_FOR_TARGET="${optflags} ${linkflags}" \
-		all --jobs=="${max_jobs}"
+		all --jobs="${max_jobs}"
 	make install
 	
 	cd "${toolchain_directory}/${triplet}/bin"
