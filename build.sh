@@ -16,11 +16,13 @@ declare -r mpc_directory='/tmp/mpc-1.3.1'
 declare -r binutils_tarball='/tmp/binutils.tar.xz'
 declare -r binutils_directory='/tmp/binutils-2.40'
 
-declare -r gcc_tarball='/tmp/gcc.tar.xz'
-declare -r gcc_directory='/tmp/gcc-12.2.0'
+declare -r gcc_tarball='/tmp/gcc.tar.gz'
+declare -r gcc_directory='/tmp/gcc-master'
 
 declare -r optflags='-Os'
 declare -r linkflags='-Wl,-s'
+
+declare -r max_jobs="$(($(nproc) * 12))"
 
 source "./submodules/obggcc/toolchains/${1}.sh"
 
@@ -45,7 +47,7 @@ if ! [ -f "${binutils_tarball}" ]; then
 fi
 
 if ! [ -f "${gcc_tarball}" ]; then
-	wget --no-verbose 'https://ftp.gnu.org/gnu/gcc/gcc-12.2.0/gcc-12.2.0.tar.xz' --output-document="${gcc_tarball}"
+	wget --no-verbose 'https://codeload.github.com/gcc-mirror/gcc/tar.gz/refs/heads/master' --output-document="${gcc_tarball}"
 	tar --directory="$(dirname "${gcc_directory}")" --extract --file="${gcc_tarball}"
 fi
 
@@ -139,21 +141,21 @@ for target in "${targets[@]}"; do
 	
 	case "${target}" in
 		amd64)
-			declare triple='x86_64-unknown-freebsd12.3';;
+			declare triplet='x86_64-unknown-freebsd12.3';;
 		arm64)
-			declare triple='aarch64-unknown-freebsd12.3';;
+			declare triplet='aarch64-unknown-freebsd12.3';;
 		i386)
-			declare triple='i386-unknown-freebsd12.3';;
+			declare triplet='i386-unknown-freebsd12.3';;
 		powerpc/powerpc)
-			declare triple='powerpc-unknown-freebsd12.3';;
+			declare triplet='powerpc-unknown-freebsd12.3';;
 		powerpc/powerpc64)
-			declare triple='powerpc64-unknown-freebsd12.3';;
+			declare triplet='powerpc64-unknown-freebsd12.3';;
 		powerpc/powerpc64_elfv2)
-			declare triple='powerpc64-unknown-freebsd13.0';;
+			declare triplet='powerpc64-unknown-freebsd13.0';;
 		riscv/riscv64)
-			declare triple='riscv64-unknown-freebsd13.0';;
+			declare triplet='riscv64-unknown-freebsd13.0';;
 		sparc64/sparc64)
-			declare triple='sparc64-unknown-freebsd12.3';;
+			declare triplet='sparc64-unknown-freebsd12.3';;
 	esac
 	
 	wget --no-verbose "${url}" --output-document="${output}"
@@ -163,7 +165,7 @@ for target in "${targets[@]}"; do
 	
 	../configure \
 		--host="${CROSS_COMPILE_TRIPLET}" \
-		--target="${triple}" \
+		--target="${triplet}" \
 		--prefix="${toolchain_directory}" \
 		--enable-gold \
 		--enable-ld \
@@ -174,13 +176,13 @@ for target in "${targets[@]}"; do
 		CXXFLAGS="${optflags}" \
 		LDFLAGS="${linkflags}"
 	
-	make all --jobs="$(($(nproc) * 8))"
+	make all --jobs="${max_jobs}"
 	make install
 	
-	tar --directory="${toolchain_directory}/${triple}" --strip=2 --extract --file="${output}" './usr/lib' './usr/include'
-	tar --directory="${toolchain_directory}/${triple}" --extract --file="${output}"  './lib'
+	tar --directory="${toolchain_directory}/${triplet}" --strip=2 --extract --file="${output}" './usr/lib' './usr/include'
+	tar --directory="${toolchain_directory}/${triplet}" --extract --file="${output}"  './lib'
 	
-	pushd "${toolchain_directory}/${triple}/lib"
+	pushd "${toolchain_directory}/${triplet}/lib"
 	
 	if [ -f './libc++.so' ]; then
 		chmod 777 './libc++.so'
@@ -208,41 +210,40 @@ for target in "${targets[@]}"; do
 	
 	../configure \
 		--host="${CROSS_COMPILE_TRIPLET}" \
-		--target="${triple}" \
+		--target="${triplet}" \
 		--prefix="${toolchain_directory}" \
 		--with-linker-hash-style='gnu' \
 		--with-gmp="${toolchain_directory}" \
 		--with-mpc="${toolchain_directory}" \
 		--with-mpfr="${toolchain_directory}" \
 		--with-bugurl='https://github.com/AmanoTeam/Loki/issues' \
+		--with-gcc-major-version-only \
+		--with-pkgversion="Loki v0.3-${revision}" \
+		--with-sysroot="${toolchain_directory}/${triplet}" \
+		--with-native-system-header-dir='/include' \
 		--enable-__cxa_atexit \
 		--enable-cet='auto' \
 		--enable-checking='release' \
 		--enable-default-ssp \
 		--enable-gnu-indirect-function \
-		--disable-gnu-unique-object \
+		--enable-languages='c,c++' \
 		--enable-libstdcxx-backtrace \
 		--enable-link-serialization='1' \
 		--enable-linker-build-id \
 		--enable-lto \
-		--disable-multilib \
 		--enable-plugin \
 		--enable-shared \
 		--enable-threads='posix' \
 		--enable-libssp \
-		--disable-libstdcxx-pch \
-		--disable-werror \
-		--enable-languages='c,c++' \
-		--disable-libgomp \
-		--disable-bootstrap \
-		--without-headers \
 		--enable-ld \
 		--enable-gold \
-		--with-pic \
-		--with-gcc-major-version-only \
-		--with-pkgversion="Loki v0.2-${revision}" \
-		--with-sysroot="${toolchain_directory}/${triple}" \
-		--with-native-system-header-dir='/include' \
+		--disable-libstdcxx-pch \
+		--disable-werror \
+		--disable-libgomp \
+		--disable-bootstrap \
+		--disable-multilib \
+		--disable-gnu-unique-object \
+		--without-headers \
 		${extra_configure_flags} \
 		CFLAGS="${optflags}" \
 		CXXFLAGS="${optflags}" \
@@ -251,20 +252,20 @@ for target in "${targets[@]}"; do
 	LD_LIBRARY_PATH="${toolchain_directory}/lib" PATH="${PATH}:${toolchain_directory}/bin" make \
 		CFLAGS_FOR_TARGET="${optflags} ${linkflags}" \
 		CXXFLAGS_FOR_TARGET="${optflags} ${linkflags}" \
-		all --jobs="$(($(nproc) * 8))"
+		all --jobs=="${max_jobs}"
 	make install
 	
-	cd "${toolchain_directory}/${triple}/bin"
+	cd "${toolchain_directory}/${triplet}/bin"
 	
 	for name in *; do
 		rm "${name}"
-		ln -s "../../bin/${triple}-${name}" "${name}"
+		ln -s "../../bin/${triplet}-${name}" "${name}"
 	done
 	
 	rm --recursive "${toolchain_directory}/share"
-	rm --recursive "${toolchain_directory}/lib/gcc/${triple}/12/include-fixed"
+	rm --recursive "${toolchain_directory}/lib/gcc/${triplet}/"*"/include-fixed"
 	
-	patchelf --add-rpath '$ORIGIN/../../../../lib' "${toolchain_directory}/libexec/gcc/${triple}/12/cc1"
-	patchelf --add-rpath '$ORIGIN/../../../../lib' "${toolchain_directory}/libexec/gcc/${triple}/12/cc1plus"
-	patchelf --add-rpath '$ORIGIN/../../../../lib' "${toolchain_directory}/libexec/gcc/${triple}/12/lto1"
+	patchelf --add-rpath '$ORIGIN/../../../../lib' "${toolchain_directory}/libexec/gcc/${triplet}/"*"/cc1"
+	patchelf --add-rpath '$ORIGIN/../../../../lib' "${toolchain_directory}/libexec/gcc/${triplet}/"*"/cc1plus"
+	patchelf --add-rpath '$ORIGIN/../../../../lib' "${toolchain_directory}/libexec/gcc/${triplet}/"*"/lto1"
 done
