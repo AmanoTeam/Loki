@@ -6,7 +6,33 @@ on:
         - '**'
 
 jobs:
-  build:
+  native-build:
+    name: 'Native build'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@main
+      with:
+        submodules: true
+    - name: Build Loki
+      run: |
+        bash './build.sh' 'native'
+    - name: Generate tarball
+      run: |
+        declare tarball_filename='/tmp/x86_64-linux-gnu.tar.xz'
+        tar --directory='/tmp' --create --file=- 'loki' | xz --threads='0' --compress -9 > "${tarball_filename}"
+        sha256sum "${tarball_filename}" | sed 's|/tmp/||' > "${tarball_filename}.sha256"
+    - name: Upload artifact
+      uses: actions/upload-artifact@main
+      with:
+        name: native-toolchain
+        if-no-files-found: error
+        path: |
+          /tmp/x86_64-linux-gnu.tar.xz
+          /tmp/x86_64-linux-gnu.tar.xz.sha256
+  
+  cross-build:
+    name: 'Cross build'
+    needs: native-build
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -30,6 +56,14 @@ jobs:
     - uses: actions/checkout@main
       with:
         submodules: true
+    - name: Download artifact
+      uses: actions/download-artifact@main
+      with:
+        name: native-toolchain
+    - name: Setup toolchain
+      run: |
+        tar --directory='/tmp' --extract --file='./x86_64-linux-gnu.tar.xz'
+        mv '/tmp/loki' '/tmp/loki-toolchain'
     - name: Build Loki with OBGGCC
       run: |
         source './tools/setup_toolchain.sh'
@@ -38,12 +72,14 @@ jobs:
         bash './build.sh' '${{ matrix.target }}'
     - name: Generate tarball
       run: |
-        declare tarball_filename='${{ matrix.target }}.tar.xz'
-        tar --directory='/tmp' --create --file=- 'loki' |  xz --threads='0' --compress -9 > "${tarball_filename}"
-        sha256sum "${tarball_filename}" > "${tarball_filename}.sha256"
+        declare tarball_filename='/tmp/${{ matrix.target }}.tar.xz'
+        tar --directory='/tmp' --create --file=- 'loki' | xz --threads='0' --compress -9 > "${tarball_filename}"
+        sha256sum "${tarball_filename}" | sed 's|/tmp/||' > "${tarball_filename}.sha256"
     - name: Upload artifact
       uses: actions/upload-artifact@main
       with:
+        name: cross-toolchain
+        if-no-files-found: error
         path: |
-          '${{ matrix.target }}.tar.xz'
-          '${{ matrix.target }}.tar.xz.sha256'
+          /tmp/${{ matrix.target }}.tar.xz
+          /tmp/${{ matrix.target }}.tar.xz.sha256

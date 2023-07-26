@@ -24,7 +24,27 @@ declare -r linkflags='-Wl,-s'
 
 declare -r max_jobs="$(($(nproc) * 12))"
 
-source "./submodules/obggcc/toolchains/${1}.sh"
+declare build_type="${1}"
+
+if [ -z "${build_type}" ]; then
+	build_type='native'
+fi
+
+declare is_native='0'
+
+if [ "${build_type}" == 'native' ]; then
+	is_native='1'
+fi
+
+declare OBGGCC_TOOLCHAIN='/tmp/obggcc-toolchain'
+declare CROSS_COMPILE_TRIPLET=''
+
+declare cross_compile_flags=''
+
+if ! (( is_native )); then
+	source "./submodules/obggcc/toolchains/${build_type}.sh"
+	cross_compile_flags+="--host=${CROSS_COMPILE_TRIPLET}"
+fi
 
 if ! [ -f "${gmp_tarball}" ]; then
 	wget --no-verbose 'https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz' --output-document="${gmp_tarball}"
@@ -51,8 +71,6 @@ if ! [ -f "${gcc_tarball}" ]; then
 	tar --directory="$(dirname "${gcc_directory}")" --extract --file="${gcc_tarball}"
 fi
 
-patch --directory="${gcc_directory}" --strip=1 < './0001-Fix-for-https-gcc.gnu.org-bugzilla-show_bug.cgi-id-9.patch' || true
-
 [ -d "${gcc_directory}/build" ] || mkdir "${gcc_directory}/build"
 
 declare -r toolchain_directory="/tmp/loki"
@@ -62,10 +80,10 @@ declare -r toolchain_directory="/tmp/loki"
 cd "${gmp_directory}/build"
 
 ../configure \
-	--host="${CROSS_COMPILE_TRIPLET}" \
 	--prefix="${toolchain_directory}" \
 	--enable-shared \
 	--enable-static \
+	${cross_compile_flags} \
 	CFLAGS="${optflags}" \
 	CXXFLAGS="${optflags}" \
 	LDFLAGS="${linkflags}"
@@ -78,11 +96,11 @@ make install
 cd "${mpfr_directory}/build"
 
 ../configure \
-	--host="${CROSS_COMPILE_TRIPLET}" \
 	--prefix="${toolchain_directory}" \
 	--with-gmp="${toolchain_directory}" \
 	--enable-shared \
 	--enable-static \
+	${cross_compile_flags} \
 	CFLAGS="${optflags}" \
 	CXXFLAGS="${optflags}" \
 	LDFLAGS="${linkflags}"
@@ -95,11 +113,11 @@ make install
 cd "${mpc_directory}/build"
 
 ../configure \
-	--host="${CROSS_COMPILE_TRIPLET}" \
 	--prefix="${toolchain_directory}" \
 	--with-gmp="${toolchain_directory}" \
 	--enable-shared \
 	--enable-static \
+	${cross_compile_flags} \
 	CFLAGS="${optflags}" \
 	CXXFLAGS="${optflags}" \
 	LDFLAGS="${linkflags}"
@@ -118,7 +136,7 @@ declare -r targets=(
 	'powerpc/powerpc'
 	'powerpc/powerpc64'
 	'powerpc/powerpc64_elfv2'
-	'riscv/riscv64'
+	# 'riscv/riscv64'
 	'sparc64/sparc64'
 )
 
@@ -164,7 +182,6 @@ for target in "${targets[@]}"; do
 	rm --force --recursive ./*
 	
 	../configure \
-		--host="${CROSS_COMPILE_TRIPLET}" \
 		--target="${triplet}" \
 		--prefix="${toolchain_directory}" \
 		--enable-gold \
@@ -172,6 +189,7 @@ for target in "${targets[@]}"; do
 		--enable-lto \
 		--disable-gprofng \
 		--with-static-standard-libraries \
+		${cross_compile_flags} \
 		CFLAGS="${optflags}" \
 		CXXFLAGS="${optflags}" \
 		LDFLAGS="${linkflags}"
@@ -209,7 +227,6 @@ for target in "${targets[@]}"; do
 	rm --force --recursive ./*
 	
 	../configure \
-		--host="${CROSS_COMPILE_TRIPLET}" \
 		--target="${triplet}" \
 		--prefix="${toolchain_directory}" \
 		--with-linker-hash-style='gnu' \
@@ -221,6 +238,7 @@ for target in "${targets[@]}"; do
 		--with-pkgversion="Loki v0.3-${revision}" \
 		--with-sysroot="${toolchain_directory}/${triplet}" \
 		--with-native-system-header-dir='/include' \
+		--includedir="${toolchain_directory}/${triplet}/include" \
 		--enable-__cxa_atexit \
 		--enable-cet='auto' \
 		--enable-checking='release' \
@@ -245,6 +263,7 @@ for target in "${targets[@]}"; do
 		--disable-gnu-unique-object \
 		--without-headers \
 		${extra_configure_flags} \
+		${cross_compile_flags} \
 		CFLAGS="${optflags}" \
 		CXXFLAGS="${optflags}" \
 		LDFLAGS="-Wl,-rpath-link,${OBGGCC_TOOLCHAIN}/${CROSS_COMPILE_TRIPLET}/lib ${linkflags}"
