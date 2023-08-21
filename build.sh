@@ -17,7 +17,7 @@ declare -r binutils_tarball='/tmp/binutils.tar.xz'
 declare -r binutils_directory='/tmp/binutils-2.40'
 
 declare -r gcc_tarball='/tmp/gcc.tar.gz'
-declare -r gcc_directory='/tmp/gcc-master'
+declare -r gcc_directory='/tmp/gcc-13.2.0'
 
 declare -r optflags='-Os'
 declare -r linkflags='-Wl,-s'
@@ -67,7 +67,7 @@ if ! [ -f "${binutils_tarball}" ]; then
 fi
 
 if ! [ -f "${gcc_tarball}" ]; then
-	wget --no-verbose 'https://codeload.github.com/gcc-mirror/gcc/tar.gz/refs/heads/master' --output-document="${gcc_tarball}"
+	wget --no-verbose 'https://mirrors.kernel.org/gnu/gcc/gcc-13.2.0/gcc-13.2.0.tar.xz' --output-document="${gcc_tarball}"
 	tar --directory="$(dirname "${gcc_directory}")" --extract --file="${gcc_tarball}"
 fi
 
@@ -189,6 +189,7 @@ for target in "${targets[@]}"; do
 		--enable-lto \
 		--disable-gprofng \
 		--with-static-standard-libraries \
+		--with-sysroot="${toolchain_directory}/${triplet}" \
 		${cross_compile_flags} \
 		CFLAGS="${optflags}" \
 		CXXFLAGS="${optflags}" \
@@ -235,7 +236,7 @@ for target in "${targets[@]}"; do
 		--with-mpfr="${toolchain_directory}" \
 		--with-bugurl='https://github.com/AmanoTeam/Loki/issues' \
 		--with-gcc-major-version-only \
-		--with-pkgversion="Loki v0.3-${revision}" \
+		--with-pkgversion="Loki v0.4-${revision}" \
 		--with-sysroot="${toolchain_directory}/${triplet}" \
 		--with-native-system-header-dir='/include' \
 		--includedir="${toolchain_directory}/${triplet}/include" \
