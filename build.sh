@@ -5,16 +5,16 @@ set -eu
 declare -r revision="$(git rev-parse --short HEAD)"
 
 declare -r gmp_tarball='/tmp/gmp.tar.xz'
-declare -r gmp_directory='/tmp/gmp-6.2.1'
+declare -r gmp_directory='/tmp/gmp-6.3.0'
 
 declare -r mpfr_tarball='/tmp/mpfr.tar.xz'
-declare -r mpfr_directory='/tmp/mpfr-4.2.0'
+declare -r mpfr_directory='/tmp/mpfr-4.2.1'
 
 declare -r mpc_tarball='/tmp/mpc.tar.gz'
 declare -r mpc_directory='/tmp/mpc-1.3.1'
 
 declare -r binutils_tarball='/tmp/binutils.tar.xz'
-declare -r binutils_directory='/tmp/binutils-2.40'
+declare -r binutils_directory='/tmp/binutils-2.41'
 
 declare -r gcc_tarball='/tmp/gcc.tar.gz'
 declare -r gcc_directory='/tmp/gcc-13.2.0'
@@ -47,12 +47,12 @@ if ! (( is_native )); then
 fi
 
 if ! [ -f "${gmp_tarball}" ]; then
-	wget --no-verbose 'https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz' --output-document="${gmp_tarball}"
+	wget --no-verbose 'https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz' --output-document="${gmp_tarball}"
 	tar --directory="$(dirname "${gmp_directory}")" --extract --file="${gmp_tarball}"
 fi
 
 if ! [ -f "${mpfr_tarball}" ]; then
-	wget --no-verbose 'https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.0.tar.xz' --output-document="${mpfr_tarball}"
+	wget --no-verbose 'https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.1.tar.xz' --output-document="${mpfr_tarball}"
 	tar --directory="$(dirname "${mpfr_directory}")" --extract --file="${mpfr_tarball}"
 fi
 
@@ -62,7 +62,7 @@ if ! [ -f "${mpc_tarball}" ]; then
 fi
 
 if ! [ -f "${binutils_tarball}" ]; then
-	wget --no-verbose 'https://ftp.gnu.org/gnu/binutils/binutils-2.40.tar.xz' --output-document="${binutils_tarball}"
+	wget --no-verbose 'https://ftp.gnu.org/gnu/binutils/binutils-2.41.tar.xz' --output-document="${binutils_tarball}"
 	tar --directory="$(dirname "${binutils_directory}")" --extract --file="${binutils_tarball}"
 fi
 
@@ -130,13 +130,13 @@ sed -i 's/#include <stdint.h>/#include <stdint.h>\n#include <stdio.h>/g' "${tool
 [ -d "${binutils_directory}/build" ] || mkdir "${binutils_directory}/build"
 
 declare -r targets=(
+	'riscv/riscv64'
 	'amd64'
 	'arm64'
 	'i386'
 	'powerpc/powerpc'
 	'powerpc/powerpc64'
 	'powerpc/powerpc64_elfv2'
-	# 'riscv/riscv64'
 	'sparc64/sparc64'
 )
 
@@ -147,14 +147,19 @@ for target in "${targets[@]}"; do
 	
 	if [ "${target}" == 'riscv/riscv64' ]; then
 		extra_configure_flags+='--disable-libatomic'
-		version='13.0-RELEASE'
+		version='15.0-CURRENT'
 	elif [ "${target}" == 'powerpc/powerpc64_elfv2' ]; then
 		# https://reviews.freebsd.org/D20383
 		extra_configure_flags+='--with-abi=elfv2'
 		version='13.0-RELEASE'
 	fi
 	
-	declare url="http://ftp-archive.freebsd.org/pub/FreeBSD-Archive/old-releases/$(cut -d '_' -f '1' <<< "${target}")/${version}/base.txz"
+	if [ "${target}" == 'riscv/riscv64' ]; then
+		declare url="https://download.freebsd.org/snapshots/$(cut -d '_' -f '1' <<< "${target}")/${version}/base.txz"
+	else
+		declare url="http://ftp-archive.freebsd.org/pub/FreeBSD-Archive/old-releases/$(cut -d '_' -f '1' <<< "${target}")/${version}/base.txz"
+	fi
+	
 	declare output="/tmp/freebsd-${target//\//_}-base.tar.xz"
 	
 	case "${target}" in
@@ -171,7 +176,7 @@ for target in "${targets[@]}"; do
 		powerpc/powerpc64_elfv2)
 			declare triplet='powerpc64-unknown-freebsd13.0';;
 		riscv/riscv64)
-			declare triplet='riscv64-unknown-freebsd13.0';;
+			declare triplet='riscv64-unknown-freebsd15.0';;
 		sparc64/sparc64)
 			declare triplet='sparc64-unknown-freebsd12.3';;
 	esac
@@ -236,7 +241,7 @@ for target in "${targets[@]}"; do
 		--with-mpfr="${toolchain_directory}" \
 		--with-bugurl='https://github.com/AmanoTeam/Loki/issues' \
 		--with-gcc-major-version-only \
-		--with-pkgversion="Loki v0.4-${revision}" \
+		--with-pkgversion="Loki v0.5-${revision}" \
 		--with-sysroot="${toolchain_directory}/${triplet}" \
 		--with-native-system-header-dir='/include' \
 		--includedir="${toolchain_directory}/${triplet}/include" \
