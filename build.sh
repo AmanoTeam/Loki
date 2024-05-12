@@ -2,6 +2,8 @@
 
 set -eu
 
+declare -r workdir="${PWD}"
+
 declare -r revision="$(git rev-parse --short HEAD)"
 
 declare -r gmp_tarball='/tmp/gmp.tar.xz'
@@ -14,15 +16,15 @@ declare -r mpc_tarball='/tmp/mpc.tar.gz'
 declare -r mpc_directory='/tmp/mpc-1.3.1'
 
 declare -r binutils_tarball='/tmp/binutils.tar.xz'
-declare -r binutils_directory='/tmp/binutils-2.41'
+declare -r binutils_directory='/tmp/binutils-2.42'
 
 declare -r gcc_tarball='/tmp/gcc.tar.gz'
-declare -r gcc_directory='/tmp/gcc-13.2.0'
+declare -r gcc_directory='/tmp/gcc-14.1.0'
 
 declare -r optflags='-Os'
 declare -r linkflags='-Wl,-s'
 
-declare -r max_jobs="$(($(nproc) * 12))"
+declare -r max_jobs="$(($(nproc) * 17))"
 
 declare build_type="${1}"
 
@@ -62,12 +64,14 @@ if ! [ -f "${mpc_tarball}" ]; then
 fi
 
 if ! [ -f "${binutils_tarball}" ]; then
-	wget --no-verbose 'https://ftp.gnu.org/gnu/binutils/binutils-2.41.tar.xz' --output-document="${binutils_tarball}"
+	wget --no-verbose 'https://ftp.gnu.org/gnu/binutils/binutils-2.42.tar.xz' --output-document="${binutils_tarball}"
 	tar --directory="$(dirname "${binutils_directory}")" --extract --file="${binutils_tarball}"
+	
+	patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/patches/0001-Revert-gold-Use-char16_t-char32_t-instead-of-uint16_.patch"
 fi
 
 if ! [ -f "${gcc_tarball}" ]; then
-	wget --no-verbose 'https://mirrors.kernel.org/gnu/gcc/gcc-13.2.0/gcc-13.2.0.tar.xz' --output-document="${gcc_tarball}"
+	wget --no-verbose 'https://ftp.gnu.org/gnu/gcc/gcc-14.1.0/gcc-14.1.0.tar.xz' --output-document="${gcc_tarball}"
 	tar --directory="$(dirname "${gcc_directory}")" --extract --file="${gcc_tarball}"
 fi
 
@@ -146,8 +150,7 @@ for target in "${targets[@]}"; do
 	declare version='12.3-RELEASE'
 	
 	if [ "${target}" == 'riscv/riscv64' ]; then
-		extra_configure_flags+='--disable-libatomic'
-		version='15.0-CURRENT'
+		version='14.1-STABLE'
 	elif [ "${target}" == 'powerpc/powerpc64_elfv2' ]; then
 		# https://reviews.freebsd.org/D20383
 		extra_configure_flags+='--with-abi=elfv2'
@@ -155,7 +158,7 @@ for target in "${targets[@]}"; do
 	fi
 	
 	if [ "${target}" == 'riscv/riscv64' ]; then
-		declare url="https://download.freebsd.org/snapshots/$(cut -d '_' -f '1' <<< "${target}")/${version}/base.txz"
+		declare url="http://ftp.freebsd.org/pub/FreeBSD/snapshots/$(cut -d '_' -f '1' <<< "${target}")/${version}/base.txz"
 	else
 		declare url="http://ftp-archive.freebsd.org/pub/FreeBSD-Archive/old-releases/$(cut -d '_' -f '1' <<< "${target}")/${version}/base.txz"
 	fi
@@ -176,12 +179,22 @@ for target in "${targets[@]}"; do
 		powerpc/powerpc64_elfv2)
 			declare triplet='powerpc64-unknown-freebsd13.0';;
 		riscv/riscv64)
-			declare triplet='riscv64-unknown-freebsd15.0';;
+			declare triplet='riscv64-unknown-freebsd14.0';;
 		sparc64/sparc64)
 			declare triplet='sparc64-unknown-freebsd12.3';;
 	esac
 	
-	wget --no-verbose "${url}" --output-document="${output}"
+	echo "${url}"
+	
+	curl \
+		--url "${url}" \
+		--retry '30' \
+		--retry-all-errors \
+		--retry-delay '0' \
+		--retry-max-time '0' \
+		--location \
+		--silent \
+		--output "${output}"
 	
 	cd "${binutils_directory}/build"
 	rm --force --recursive ./*
@@ -227,6 +240,11 @@ for target in "${targets[@]}"; do
 	find . -type l | xargs ls -l | grep '/lib/' | awk '{print "unlink "$9" && ln -s $(basename "$11") $(basename "$9")"}' | bash 
 	
 	pushd
+	
+	# Required due to https://gcc.gnu.org/bugzilla/show_bug.cgi?id=78251
+	if [ "${target}" == 'riscv/riscv64' ]; then
+		mv "${toolchain_directory}/${triplet}/include/unwind.h" "${toolchain_directory}/${triplet}/include/unwind.h.bak"
+	fi
 	
 	cd "${gcc_directory}/build"
 	
@@ -279,6 +297,10 @@ for target in "${targets[@]}"; do
 		CXXFLAGS_FOR_TARGET="${optflags} ${linkflags}" \
 		all --jobs="${max_jobs}"
 	make install
+	
+	if [ "${target}" == 'riscv/riscv64' ]; then
+		mv "${toolchain_directory}/${triplet}/include/unwind.h.bak" "${toolchain_directory}/${triplet}/include/unwind.h"
+	fi
 	
 	cd "${toolchain_directory}/${triplet}/bin"
 	
