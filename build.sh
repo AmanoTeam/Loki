@@ -18,6 +18,9 @@ declare -r mpfr_directory='/tmp/mpfr-4.2.1'
 declare -r mpc_tarball='/tmp/mpc.tar.gz'
 declare -r mpc_directory='/tmp/mpc-1.3.1'
 
+declare -r isl_tarball='/tmp/isl.tar.xz'
+declare -r isl_directory='/tmp/isl-0.27'
+
 declare -r binutils_tarball='/tmp/binutils.tar.xz'
 declare -r binutils_directory='/tmp/binutils-with-gold-2.44'
 
@@ -29,6 +32,7 @@ declare -r max_jobs='40'
 declare -r optlto="-flto=${max_jobs} -fno-fat-lto-objects"
 declare -r optfatlto="-flto=${max_jobs} -ffat-lto-objects"
 
+declare -r pieflags='-fPIE'
 declare -r optflags='-w -O2'
 declare -r linkflags='-Wl,-s'
 
@@ -129,6 +133,23 @@ if ! [ -f "${mpc_tarball}" ]; then
 		--file="${mpc_tarball}"
 fi
 
+if ! [ -f "${isl_tarball}" ]; then
+	curl \
+		--url 'https://libisl.sourceforge.io/isl-0.27.tar.xz' \
+		--retry '30' \
+		--retry-all-errors \
+		--retry-delay '0' \
+		--retry-max-time '0' \
+		--location \
+		--silent \
+		--output "${isl_tarball}"
+	
+	tar \
+		--directory="$(dirname "${isl_directory}")" \
+		--extract \
+		--file="${isl_tarball}"
+fi
+
 if ! [ -f "${binutils_tarball}" ]; then
 	curl \
 		--url 'https://ftp.gnu.org/gnu/binutils/binutils-with-gold-2.44.tar.xz' \
@@ -224,7 +245,23 @@ cd "${mpc_directory}/build"
 make all --jobs
 make install
 
-[ -d "${binutils_directory}/build" ] || mkdir "${binutils_directory}/build"
+[ -d "${isl_directory}/build" ] || mkdir "${isl_directory}/build"
+
+cd "${isl_directory}/build"
+rm --force --recursive ./*
+
+../configure \
+	--host="${CROSS_COMPILE_TRIPLET}" \
+	--prefix="${toolchain_directory}" \
+	--with-gmp-prefix="${toolchain_directory}" \
+	--enable-shared \
+	--enable-static \
+	CFLAGS="${pieflags} ${optflags} ${optlto}" \
+	CXXFLAGS="${pieflags} ${optflags} ${optlto}" \
+	LDFLAGS="-Wl,-rpath-link -Wl,${toolchain_directory}/lib ${linkflags} ${optlto}"
+
+make all --jobs
+make install
 
 for triplet in "${targets[@]}"; do
 	declare extra_configure_flags=''
@@ -237,6 +274,8 @@ for triplet in "${targets[@]}"; do
 	if [ "${triplet}" == 'sparc64-unknown-freebsd12.3' ]; then
 		extra_configure_flags+=' --disable-libsanitizer'
 	fi
+	
+	[ -d "${binutils_directory}/build" ] || mkdir "${binutils_directory}/build"
 	
 	cd "${binutils_directory}/build"
 	rm --force --recursive ./*
@@ -301,15 +340,18 @@ for triplet in "${targets[@]}"; do
 		--with-gmp="${toolchain_directory}" \
 		--with-mpc="${toolchain_directory}" \
 		--with-mpfr="${toolchain_directory}" \
+		--with-isl="${toolchain_directory}" \
 		--with-bugurl='https://github.com/AmanoTeam/Loki/issues' \
 		--with-gcc-major-version-only \
 		--with-pkgversion="Loki v0.7-${revision}" \
 		--with-sysroot="${toolchain_directory}/${triplet}" \
 		--with-native-system-header-dir='/include' \
+		--with-default-libstdcxx-abi='new' \
 		--includedir="${toolchain_directory}/${triplet}/include" \
 		--enable-__cxa_atexit \
 		--enable-cet='auto' \
 		--enable-checking='release' \
+		--enable-default-pie \
 		--enable-default-ssp \
 		--enable-gnu-indirect-function \
 		--enable-languages='c,c++' \
@@ -324,6 +366,7 @@ for triplet in "${targets[@]}"; do
 		--enable-libssp \
 		--enable-ld \
 		--enable-gold \
+		--enable-libstdcxx-time='yes' \
 		--disable-fixincludes \
 		--disable-libstdcxx-pch \
 		--disable-werror \
