@@ -13,7 +13,7 @@ declare -r gmp_tarball='/tmp/gmp.tar.xz'
 declare -r gmp_directory='/tmp/gmp-6.3.0'
 
 declare -r mpfr_tarball='/tmp/mpfr.tar.xz'
-declare -r mpfr_directory='/tmp/mpfr-4.2.1'
+declare -r mpfr_directory='/tmp/mpfr-4.2.2'
 
 declare -r mpc_tarball='/tmp/mpc.tar.gz'
 declare -r mpc_directory='/tmp/mpc-1.3.1'
@@ -24,16 +24,13 @@ declare -r isl_directory='/tmp/isl-0.27'
 declare -r binutils_tarball='/tmp/binutils.tar.xz'
 declare -r binutils_directory='/tmp/binutils-with-gold-2.44'
 
-declare -r gcc_tarball='/tmp/gcc.tar.gz'
-declare -r gcc_directory='/tmp/gcc-master'
+declare -r gcc_tarball='/tmp/gcc.tar.xz'
+declare -r gcc_directory='/tmp/gcc-15.1.0'
 
 declare -r max_jobs='40'
 
-declare -r optlto="-flto=${max_jobs} -fno-fat-lto-objects"
-declare -r optfatlto="-flto=${max_jobs} -ffat-lto-objects"
-
 declare -r pieflags='-fPIE'
-declare -r optflags='-w -O2'
+declare -r optflags='-w -O2 -Xlinker --allow-multiple-definition'
 declare -r linkflags='-Wl,-s'
 
 declare -ra asan_libraries=(
@@ -50,9 +47,9 @@ declare -ra plugin_libraries=(
 )
 
 declare -ra targets=(
+	'x86_64-unknown-freebsd12.3'
 	'sparc64-unknown-freebsd12.3'
 	'aarch64-unknown-freebsd12.3'
-	'x86_64-unknown-freebsd12.3'
 	'i386-unknown-freebsd12.3'
 	'powerpc-unknown-freebsd12.3'
 	'powerpc64-unknown-freebsd12.3'
@@ -101,7 +98,7 @@ fi
 
 if ! [ -f "${mpfr_tarball}" ]; then
 	curl \
-		--url 'https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.1.tar.xz' \
+		--url 'https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.2.tar.xz' \
 		--retry '30' \
 		--retry-all-errors \
 		--retry-delay '0' \
@@ -172,7 +169,7 @@ fi
 
 if ! [ -f "${gcc_tarball}" ]; then
 	curl \
-		--url 'https://github.com/gcc-mirror/gcc/archive/refs/heads/master.tar.gz' \
+		--url 'https://ftp.gnu.org/gnu/gcc/gcc-15.1.0/gcc-15.1.0.tar.xz' \
 		--retry '30' \
 		--retry-all-errors \
 		--retry-delay '0' \
@@ -185,8 +182,6 @@ if ! [ -f "${gcc_tarball}" ]; then
 		--directory="$(dirname "${gcc_directory}")" \
 		--extract \
 		--file="${gcc_tarball}"
-	
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/patches/0001-Fix-FreeBSD-config-for-riscv.patch"
 	
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Fix-libgcc-build-on-arm.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Change-the-default-language-version-for-C-compilatio.patch"
@@ -203,10 +198,10 @@ cd "${gmp_directory}/build"
 	--host="${CROSS_COMPILE_TRIPLET}" \
 	--prefix="${toolchain_directory}" \
 	--enable-shared \
-	--enable-static \
-	CFLAGS="${optflags} ${optlto}" \
-	CXXFLAGS="${optflags} ${optlto}" \
-	LDFLAGS="${linkflags} ${optlto}"
+	--disable-static \
+	CFLAGS="${optflags}" \
+	CXXFLAGS="${optflags}" \
+	LDFLAGS="${linkflags}"
 
 make all --jobs
 make install
@@ -220,10 +215,10 @@ cd "${mpfr_directory}/build"
 	--prefix="${toolchain_directory}" \
 	--with-gmp="${toolchain_directory}" \
 	--enable-shared \
-	--enable-static \
-	CFLAGS="${optflags} ${optlto}" \
-	CXXFLAGS="${optflags} ${optlto}" \
-	LDFLAGS="${linkflags} ${optlto}"
+	--disable-static \
+	CFLAGS="${optflags}" \
+	CXXFLAGS="${optflags}" \
+	LDFLAGS="${linkflags}"
 
 make all --jobs
 make install
@@ -237,10 +232,10 @@ cd "${mpc_directory}/build"
 	--prefix="${toolchain_directory}" \
 	--with-gmp="${toolchain_directory}" \
 	--enable-shared \
-	--enable-static \
-	CFLAGS="${optflags} ${optlto}" \
-	CXXFLAGS="${optflags} ${optlto}" \
-	LDFLAGS="${linkflags} ${optlto}"
+	--disable-static \
+	CFLAGS="${optflags}" \
+	CXXFLAGS="${optflags}" \
+	LDFLAGS="${linkflags}"
 
 make all --jobs
 make install
@@ -255,10 +250,10 @@ rm --force --recursive ./*
 	--prefix="${toolchain_directory}" \
 	--with-gmp-prefix="${toolchain_directory}" \
 	--enable-shared \
-	--enable-static \
-	CFLAGS="${pieflags} ${optflags} ${optlto}" \
-	CXXFLAGS="${pieflags} ${optflags} ${optlto}" \
-	LDFLAGS="-Wl,-rpath-link -Wl,${toolchain_directory}/lib ${linkflags} ${optlto}"
+	--disable-static \
+	CFLAGS="${pieflags} ${optflags}" \
+	CXXFLAGS="${pieflags} ${optflags}" \
+	LDFLAGS="-Wl,-rpath-link -Wl,${toolchain_directory}/lib ${linkflags}"
 
 make all --jobs
 make install
@@ -290,9 +285,9 @@ for triplet in "${targets[@]}"; do
 		--disable-gprofng \
 		--with-static-standard-libraries \
 		--with-sysroot="${toolchain_directory}/${triplet}" \
-		CFLAGS="${optflags} ${optlto}" \
-		CXXFLAGS="${optflags} ${optlto}" \
-		LDFLAGS="${linkflags} ${optlto}"
+		CFLAGS="${optflags}" \
+		CXXFLAGS="${optflags}" \
+		LDFLAGS="${linkflags}"
 	
 	make all --jobs="${max_jobs}"
 	make install
@@ -356,6 +351,12 @@ for triplet in "${targets[@]}"; do
 		--enable-gnu-indirect-function \
 		--enable-languages='c,c++' \
 		--enable-libstdcxx-backtrace \
+		--enable-libstdcxx-filesystem-ts \
+		--enable-libstdcxx-static-eh-pool \
+		--enable-cxx-flags="${linkflags}" \
+		--with-libstdcxx-zoneinfo='static' \
+		--with-libstdcxx-lock-policy='auto' \
+		--with-static-standard-libraries \
 		--enable-link-serialization='1' \
 		--enable-linker-build-id \
 		--enable-lto \
@@ -363,6 +364,7 @@ for triplet in "${targets[@]}"; do
 		--enable-libsanitizer \
 		--enable-shared \
 		--enable-threads='posix' \
+		--enable-libstdcxx-threads \
 		--enable-libssp \
 		--enable-ld \
 		--enable-gold \
