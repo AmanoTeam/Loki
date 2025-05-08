@@ -25,7 +25,7 @@ declare -r binutils_tarball='/tmp/binutils.tar.xz'
 declare -r binutils_directory='/tmp/binutils-with-gold-2.44'
 
 declare -r gcc_tarball='/tmp/gcc.tar.xz'
-declare -r gcc_directory='/tmp/gcc-15.1.0'
+declare -r gcc_directory='/tmp/gcc-15-20250503'
 
 declare -r max_jobs='40'
 
@@ -169,7 +169,7 @@ fi
 
 if ! [ -f "${gcc_tarball}" ]; then
 	curl \
-		--url 'https://ftp.gnu.org/gnu/gcc/gcc-15.1.0/gcc-15.1.0.tar.xz' \
+		--url 'https://gcc.gnu.org/pub/gcc/snapshots/LATEST-15/gcc-15-20250503.tar.xz' \
 		--retry '30' \
 		--retry-all-errors \
 		--retry-delay '0' \
@@ -368,6 +368,7 @@ for triplet in "${targets[@]}"; do
 		--enable-libssp \
 		--enable-ld \
 		--enable-gold \
+		--enable-libstdcxx-time='yes' \
 		--disable-fixincludes \
 		--disable-libstdcxx-pch \
 		--disable-werror \
@@ -380,7 +381,7 @@ for triplet in "${targets[@]}"; do
 		CFLAGS="${optflags}" \
 		CXXFLAGS="${optflags}" \
 		LDFLAGS="${linkflags}"
-	# --enable-libstdcxx-time='yes' \
+	
 	LD_LIBRARY_PATH="${toolchain_directory}/lib" PATH="${PATH}:${toolchain_directory}/bin" make \
 		CFLAGS_FOR_TARGET="${optflags} ${linkflags}" \
 		CXXFLAGS_FOR_TARGET="${optflags} ${linkflags}" \
