@@ -25,13 +25,13 @@ declare -r binutils_tarball='/tmp/binutils.tar.xz'
 declare -r binutils_directory='/tmp/binutils-with-gold-2.44'
 
 declare -r gcc_tarball='/tmp/gcc.tar.xz'
-declare -r gcc_directory='/tmp/gcc-15.1.0'
+declare -r gcc_directory='/tmp/gcc-14.2.0'
 
 declare -r max_jobs='40'
 
 declare -r pieflags='-fPIE'
-declare -r optflags='-w -O2 -Xlinker --allow-multiple-definition'
-declare -r linkflags='-Wl,-s'
+declare -r optflags='-w -Os -Xlinker --allow-multiple-definition'
+declare -r linkflags='-Xlinker -s'
 
 declare -ra asan_libraries=(
 	'libasan'
@@ -169,7 +169,7 @@ fi
 
 if ! [ -f "${gcc_tarball}" ]; then
 	curl \
-		--url 'https://ftp.gnu.org/gnu/gcc/gcc-15.1.0/gcc-15.1.0.tar.xz' \
+		--url 'https://ftp.gnu.org/gnu/gcc/gcc-14.2.0/gcc-14.2.0.tar.xz' \
 		--retry '30' \
 		--retry-all-errors \
 		--retry-delay '0' \
