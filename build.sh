@@ -368,7 +368,6 @@ for triplet in "${targets[@]}"; do
 		--enable-libssp \
 		--enable-ld \
 		--enable-gold \
-		--enable-libstdcxx-time='yes' \
 		--disable-fixincludes \
 		--disable-libstdcxx-pch \
 		--disable-werror \
@@ -381,7 +380,7 @@ for triplet in "${targets[@]}"; do
 		CFLAGS="${optflags}" \
 		CXXFLAGS="${optflags}" \
 		LDFLAGS="${linkflags}"
-	
+	# --enable-libstdcxx-time='yes' \
 	LD_LIBRARY_PATH="${toolchain_directory}/lib" PATH="${PATH}:${toolchain_directory}/bin" make \
 		CFLAGS_FOR_TARGET="${optflags} ${linkflags}" \
 		CXXFLAGS_FOR_TARGET="${optflags} ${linkflags}" \
