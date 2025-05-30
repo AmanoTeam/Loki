@@ -25,9 +25,7 @@ jobs:
     - name: Build Loki
       if: ${{ steps.check-cache.outputs.cache-hit != 'true' }}
       run: |
-        bash './build.sh' 'native' || true
-    - name: Setup upterm session
-      uses: lhotari/action-upterm@v1
+        bash './build.sh' 'native'
     - name: Generate tarball
       if: ${{ steps.check-cache.outputs.cache-hit != 'true' }}
       run: |
