@@ -354,7 +354,7 @@ for triplet in "${targets[@]}"; do
 		--enable-libstdcxx-filesystem-ts \
 		--enable-libstdcxx-static-eh-pool \
 		--with-libstdcxx-zoneinfo='static' \
-		--with-libstdcxx-lock-policy='auto' \
+		--with-libstdcxx-lock-policy='mutex' \
 		--with-static-standard-libraries \
 		--enable-link-serialization='1' \
 		--enable-linker-build-id \
