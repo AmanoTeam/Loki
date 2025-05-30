@@ -351,9 +351,6 @@ for triplet in "${targets[@]}"; do
 		--enable-gnu-indirect-function \
 		--enable-languages='c,c++' \
 		--enable-libstdcxx-backtrace \
-		--enable-libstdcxx-filesystem-ts \
-		--enable-libstdcxx-static-eh-pool \
-		--with-libstdcxx-zoneinfo='static' \
 		--with-static-standard-libraries \
 		--enable-link-serialization='1' \
 		--enable-linker-build-id \
