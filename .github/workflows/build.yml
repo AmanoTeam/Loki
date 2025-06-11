@@ -17,7 +17,7 @@ jobs:
       id: check-cache
       uses: actions/cache@main
       with:
-        key: gcc-15.1.0
+        key: gcc-15.1.0-1
         lookup-only: true
         path: |
           /tmp/x86_64-linux-gnu.tar.xz
@@ -26,24 +26,6 @@ jobs:
       if: ${{ steps.check-cache.outputs.cache-hit != 'true' }}
       run: |
         bash './build.sh' 'native'
-    - name: Create logs
-      if: ${{ steps.check-cache.outputs.cache-hit != 'true' }} && '!cancelled()'
-      run: |
-        declare logs=''
-        
-        while read file; do
-            logs+="${file} "
-        done <<< $(find "/tmp/gcc-"*"/build" -wholename '*/config.log')
-        
-        tar --create --file=- ${logs} | xz --threads='0' --compress -9 > '/tmp/logs.tar.xz'
-    - name: Upload logs
-      if:  ${{ steps.check-cache.outputs.cache-hit != 'true' }} && '!cancelled()'
-      uses: actions/upload-artifact@main
-      with:
-        name: logs
-        if-no-files-found: error
-        path: |
-            /tmp/logs.tar.xz
     - name: Generate tarball
       if: ${{ steps.check-cache.outputs.cache-hit != 'true' }}
       run: |
@@ -63,7 +45,7 @@ jobs:
       if: ${{ steps.check-cache.outputs.cache-hit != 'true' }}
       uses: actions/cache@main
       with:
-        key: gcc-15.1.0
+        key: gcc-15.1.0-1
         path: |
           /tmp/x86_64-linux-gnu.tar.xz
           /tmp/x86_64-linux-gnu.tar.xz.sha256
@@ -100,7 +82,7 @@ jobs:
     - name: Restore from cache
       uses: actions/cache@main
       with:
-        key: gcc-15.1.0
+        key: gcc-15.1.0-1
         fail-on-cache-miss: true
         path: |
           /tmp/x86_64-linux-gnu.tar.xz
