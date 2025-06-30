@@ -168,6 +168,7 @@ if ! [ -f "${binutils_tarball}" ]; then
 	
 	patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Revert-gold-Use-char16_t-char32_t-instead-of-uint16_.patch"
 	patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Disable-annoying-linker-warnings.patch"
+	patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Add-relative-RPATHs-to-binutils-host-tools.patch"
 fi
 
 if ! [ -f "${zstd_tarball}" ]; then
@@ -208,6 +209,7 @@ if ! [ -f "${gcc_tarball}" ]; then
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Turn-Wimplicit-int-back-into-an-warning.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Turn-Wint-conversion-back-into-an-warning.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Revert-GCC-change-about-turning-Wimplicit-function-d.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Add-relative-RPATHs-to-GCC-host-tools.patch"
 fi
 
 [ -d "${gmp_directory}/build" ] || mkdir "${gmp_directory}/build"
@@ -324,8 +326,9 @@ for triplet in "${targets[@]}"; do
 		--with-static-standard-libraries \
 		--with-sysroot="${toolchain_directory}/${triplet}" \
 		--with-zstd="${toolchain_directory}" \
-		CFLAGS="${optflags} -I${toolchain_directory}/include" \
-		CXXFLAGS="${optflags} -I${toolchain_directory}/include" \
+		--without-static-standard-libraries \
+		CFLAGS="${optflags} -I${toolchain_directory}/include -L${toolchain_directory}/lib" \
+		CXXFLAGS="${optflags} -I${toolchain_directory}/include -L${toolchain_directory}/lib" \
 		LDFLAGS="${linkflags}"
 	
 	make all --jobs="${max_jobs}"
@@ -370,7 +373,7 @@ for triplet in "${targets[@]}"; do
 		--host="${CROSS_COMPILE_TRIPLET}" \
 		--target="${triplet}" \
 		--prefix="${toolchain_directory}" \
-		--with-linker-hash-style='gnu' \
+		--with-linker-hash-style='both' \
 		--with-gmp="${toolchain_directory}" \
 		--with-mpc="${toolchain_directory}" \
 		--with-mpfr="${toolchain_directory}" \
@@ -378,7 +381,7 @@ for triplet in "${targets[@]}"; do
 		--with-zstd="${toolchain_directory}" \
 		--with-bugurl='https://github.com/AmanoTeam/Loki/issues' \
 		--with-gcc-major-version-only \
-		--with-pkgversion="Loki v0.7-${revision}" \
+		--with-pkgversion="Loki v0.9-${revision}" \
 		--with-sysroot="${toolchain_directory}/${triplet}" \
 		--with-native-system-header-dir='/include' \
 		--with-default-libstdcxx-abi='new' \
@@ -388,6 +391,7 @@ for triplet in "${targets[@]}"; do
 		--enable-checking='release' \
 		--disable-default-pie \
 		--enable-default-ssp \
+		--disable-gnu-unique-object \
 		--enable-gnu-indirect-function \
 		--enable-languages='c,c++' \
 		--enable-libstdcxx-backtrace \
@@ -416,8 +420,8 @@ for triplet in "${targets[@]}"; do
 		--disable-libgomp \
 		--disable-bootstrap \
 		--disable-multilib \
-		--disable-gnu-unique-object \
 		--without-headers \
+		--without-static-standard-libraries \
 		${extra_configure_flags} \
 		CFLAGS="${optflags}" \
 		CXXFLAGS="${optflags}" \
@@ -438,20 +442,32 @@ for triplet in "${targets[@]}"; do
 	if [ "${triplet}" = 'riscv64-unknown-freebsd14.2' ]; then
 		mv "${toolchain_directory}/${triplet}/include/unwind.h.bak" "${toolchain_directory}/${triplet}/include/unwind.h"
 	fi
-	
-	patchelf --add-rpath '$ORIGIN/../../../../lib' "${toolchain_directory}/libexec/gcc/${triplet}/"*"/cc1"
-	patchelf --add-rpath '$ORIGIN/../../../../lib' "${toolchain_directory}/libexec/gcc/${triplet}/"*"/cc1plus"
-	patchelf --add-rpath '$ORIGIN/../../../../lib' "${toolchain_directory}/libexec/gcc/${triplet}/"*"/lto1"
-	
-	for library in "${asan_libraries[@]}"; do
-		patchelf --set-rpath '$ORIGIN' "${toolchain_directory}/lib"*"/${library}.so" || true
-		patchelf --set-rpath '$ORIGIN' "${toolchain_directory}/${triplet}/lib"*"/${library}.so" || true
-	done
-	
-	for library in "${plugin_libraries[@]}"; do
-		patchelf --set-rpath "\$ORIGIN/../../../../../${triplet}/lib64:\$ORIGIN/../../../../../${triplet}/lib:\$ORIGIN/../../../../../lib64:\$ORIGIN/../../../../../lib" "${toolchain_directory}/lib/gcc/${triplet}/"*"/plugin/${library}.so"
-	done
 done
+
+rm --force --recursive "${toolchain_directory}/share"
+
+declare cc='gcc'
+declare readelf='readelf'
+
+if ! (( is_native )); then
+	cc="${CC}"
+	readelf="${READELF}"
+fi
+
+# Bundle both libstdc++ and libgcc within host tools
+if ! (( is_native )); then
+	[ -d "${toolchain_directory}/lib" ] || mkdir "${toolchain_directory}/lib"
+	
+	declare name=$(realpath $("${cc}" --print-file-name='libstdc++.so'))
+	declare soname=$("${readelf}" -d "${name}" | grep 'SONAME' | sed --regexp-extended 's/.+\[(.+)\]/\1/g')
+	
+	cp "${name}" "${toolchain_directory}/lib/${soname}"
+	
+	declare name=$(realpath $("${cc}" --print-file-name='libgcc_s.so.1'))
+	declare soname=$("${readelf}" -d "${name}" | grep 'SONAME' | sed --regexp-extended 's/.+\[(.+)\]/\1/g')
+	
+	cp "${name}" "${toolchain_directory}/lib/${soname}"
+fi
 
 mkdir --parent "${share_directory}"
 
