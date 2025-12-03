@@ -521,8 +521,6 @@ for triplet in "${targets[@]}"; do
 	declare sysroot_file="${PWD}/${triplet}.tar.xz"
 	declare sysroot_directory="${PWD}/${triplet}"
 	
-	echo "${sysroot_url}"
-	
 	curl \
 		--url "${sysroot_url}" \
 		--retry '30' \
