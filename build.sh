@@ -569,7 +569,7 @@ for triplet in "${targets[@]}"; do
 		--enable-__cxa_atexit \
 		--enable-cet='auto' \
 		--enable-checking='release' \
-		--enable-default-pie \
+		--disable-default-pie \
 		--enable-default-ssp \
 		--disable-gnu-unique-object \
 		--enable-gnu-indirect-function \
