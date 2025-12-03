@@ -37,7 +37,6 @@ declare -r zstd_directory='/tmp/zstd-dev'
 
 declare -r max_jobs='30'
 
-declare -r pieflags='-fPIE'
 declare -r ccflags='-w -O2'
 declare -r linkflags='-Xlinker -s'
 
@@ -55,14 +54,12 @@ declare -ra plugin_libraries=(
 )
 
 declare -ra targets=(
-	'x86_64-unknown-freebsd12.3'
-	'sparc64-unknown-freebsd12.3'
-	'aarch64-unknown-freebsd12.3'
-	'i386-unknown-freebsd12.3'
-	'powerpc-unknown-freebsd12.3'
-	'powerpc64-unknown-freebsd12.3'
-	'powerpc64-unknown-freebsd13.0'
-	'riscv64-unknown-freebsd14.2'
+	'x86_64-unknown-freebsd15.0'
+	'aarch64-unknown-freebsd15.0'
+	'i386-unknown-freebsd14.3'
+	'powerpc-unknown-freebsd15.0'
+	'powerpc64-unknown-freebsd15.0'
+	'riscv64-unknown-freebsd15.0'
 )
 
 declare -r PKG_CONFIG_PATH="${toolchain_directory}/lib/pkgconfig"
@@ -166,7 +163,7 @@ fi
 
 if ! [ -f "${isl_tarball}" ]; then
 	curl \
-		--url 'https://sourceforge.net/projects/libisl/files/isl-0.27.tar.xz' \
+		--url 'https://deb.debian.org/debian/pool/main/i/isl/isl_0.27.orig.tar.xz' \
 		--retry '30' \
 		--retry-all-errors \
 		--retry-delay '0' \
@@ -185,7 +182,7 @@ fi
 
 if ! [ -f "${binutils_tarball}" ]; then
 	curl \
-		--url 'https://mirrors.kernel.org/gnu/binutils/binutils-2.45.tar.xz' \
+		--url 'https://github.com/AmanoTeam/binutils-snapshots/releases/latest/download/binutils.tar.xz' \
 		--retry '30' \
 		--retry-all-errors \
 		--retry-delay '0' \
@@ -198,6 +195,20 @@ if ! [ -f "${binutils_tarball}" ]; then
 		--directory="$(dirname "${binutils_directory}")" \
 		--extract \
 		--file="${binutils_tarball}"
+	
+	if [[ "${CROSS_COMPILE_TRIPLET}" = *'-darwin'* ]]; then
+		sed \
+			--in-place \
+			's/$$ORIGIN/@loader_path/g' \
+			"${workdir}/submodules/obggcc/patches/0001-Add-relative-RPATHs-to-binutils-host-tools.patch"
+	fi
+	
+	if [[ "${CROSS_COMPILE_TRIPLET}" = *'bsd'* ]]; then
+		sed \
+			--in-place \
+			's/-Xlinker -rpath/-Xlinker -z -Xlinker origin -Xlinker -rpath/g' \
+			"${workdir}/submodules/obggcc/patches/0001-Add-relative-RPATHs-to-binutils-host-tools.patch"
+	fi
 	
 	patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Add-relative-RPATHs-to-binutils-host-tools.patch"
 	patch --directory="${binutils_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Don-t-warn-about-local-symbols-within-the-globals.patch"
@@ -255,17 +266,32 @@ if ! [ -f "${gcc_tarball}" ]; then
 		--extract \
 		--file="${gcc_tarball}"
 	
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Fix-libgcc-build-on-arm.patch"
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Change-the-default-language-version-for-C-compilatio.patch"
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Turn-Wimplicit-int-back-into-an-warning.patch"
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Turn-Wint-conversion-back-into-an-warning.patch"
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Revert-GCC-change-about-turning-Wimplicit-function-d.patch"
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Add-relative-RPATHs-to-GCC-host-tools.patch"
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Add-ARM-and-ARM64-drivers-to-OpenBSD-host-tools.patch"
-	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Fix-missing-stdint.h-include-when-compiling-host-tools-on-OpenBSD.patch"
+	if [[ "${CROSS_COMPILE_TRIPLET}" = *'-darwin'* ]]; then
+		sed \
+			--in-place \
+			's/$$ORIGIN/@loader_path/g' \
+			"${workdir}/submodules/obggcc/patches/0007-Add-relative-RPATHs-to-GCC-host-tools.patch"
+	fi
+	
+	if [[ "${CROSS_COMPILE_TRIPLET}" = *'bsd'* ]]; then
+		sed \
+			--in-place \
+			's/-Xlinker -rpath/-Xlinker -z -Xlinker origin -Xlinker -rpath/g' \
+			"${workdir}/submodules/obggcc/patches/0007-Add-relative-RPATHs-to-GCC-host-tools.patch"
+	fi
+	
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Turn-Wimplicit-function-declaration-back-into-an-warning.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0002-Fix-libsanitizer-build-on-older-platforms.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0003-Change-the-default-language-version-for-C-compilation-from-std-gnu23-to-std-gnu17.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/gcc-15/0004-Turn-Wimplicit-int-back-into-an-warning.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0005-Turn-Wint-conversion-back-into-an-warning.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/gcc-15/0006-Turn-Wincompatible-pointer-types-back-into-an-warning.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0007-Add-relative-RPATHs-to-GCC-host-tools.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0008-Add-ARM-and-ARM64-drivers-to-OpenBSD-host-tools.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0009-Fix-missing-stdint.h-include-when-compiling-host-tools-on-OpenBSD.patch"
 fi
 
-# Follow Debian's approach for removing hardcoded RPATH from binaries
+# Follow Debian's approach to remove hardcoded RPATHs from binaries
 # https://wiki.debian.org/RpathIssue
 sed \
 	--in-place \
@@ -276,6 +302,15 @@ sed \
 	"${mpfr_directory}/configure" \
 	"${gmp_directory}/configure" \
 	"${gcc_directory}/libsanitizer/configure"
+
+# Avoid using absolute hardcoded install_name values on macOS
+sed \
+	--in-place \
+	's|-install_name \\$rpath/\\$soname|-install_name @rpath/\\$soname|g' \
+	"${isl_directory}/configure" \
+	"${mpc_directory}/configure" \
+	"${mpfr_directory}/configure" \
+	"${gmp_directory}/configure"
 
 # Fix Autotools mistakenly detecting shared libraries as not supported on OpenBSD
 while read file; do
@@ -297,11 +332,18 @@ sed \
 
 cd "${gmp_directory}/build"
 
+declare disable_assembly='--disable-assembly'
+
+if [[ "${CROSS_COMPILE_TRIPLET}" != 'mips64el-'* ]]; then
+	disable_assembly=''
+fi
+
 ../configure \
 	--host="${CROSS_COMPILE_TRIPLET}" \
 	--prefix="${toolchain_directory}" \
 	--enable-shared \
 	--disable-static \
+	${disable_assembly} \
 	CFLAGS="${ccflags}" \
 	CXXFLAGS="${ccflags}" \
 	LDFLAGS="${linkflags}"
@@ -354,8 +396,9 @@ rm --force --recursive ./*
 	--with-gmp-prefix="${toolchain_directory}" \
 	--enable-shared \
 	--disable-static \
-	CFLAGS="${pieflags} ${ccflags}" \
-	CXXFLAGS="${pieflags} ${ccflags}" \
+	--with-pic \
+	CFLAGS="${ccflags}" \
+	CXXFLAGS="${ccflags}" \
 	LDFLAGS="-Xlinker -rpath-link -Xlinker ${toolchain_directory}/lib ${linkflags}"
 
 make all --jobs
@@ -383,9 +426,16 @@ unlink "${toolchain_directory}/lib/libz.a"
 cd "${zstd_directory}/.build"
 rm --force --recursive ./*
 
+declare cmake_flags=''
+
+if [[ "${CROSS_COMPILE_TRIPLET}" = *'-darwin'* ]]; then
+	cmake_flags+=' -DCMAKE_SYSTEM_NAME=Darwin'
+fi
+
 cmake \
 	-S "${zstd_directory}/build/cmake" \
 	-B "${PWD}" \
+	${cmake_flags} \
 	-DCMAKE_C_FLAGS="-DZDICT_QSORT=ZDICT_QSORT_MIN ${ccflags}" \
 	-DCMAKE_INSTALL_PREFIX="${toolchain_directory}" \
 	-DBUILD_SHARED_LIBS=ON \
@@ -402,32 +452,32 @@ cp "${workdir}/submodules/obggcc/tools/ln.sh" '/tmp/ln'
 
 export PATH="/tmp:${PATH}"
 
-if [[ "${CROSS_COMPILE_TRIPLET}" == 'arm'*'-android'* ]]; then
+if [[ "${CROSS_COMPILE_TRIPLET}" = 'arm'*'-android'* ]] || [[ "${CROSS_COMPILE_TRIPLET}" = 'i686-'*'-android'* ]] || [[ "${CROSS_COMPILE_TRIPLET}" = 'mipsel-'*'-android'* ]]; then
 	export \
 		ac_cv_func_fseeko='no' \
 		ac_cv_func_ftello='no'
 fi
 
-if [[ "${CROSS_COMPILE_TRIPLET}" == *'-haiku' ]]; then
+if [[ "${CROSS_COMPILE_TRIPLET}" = 'armv5'*'-android'* ]]; then
+	export PINO_ARM_MODE='true'
+fi
+
+if [[ "${CROSS_COMPILE_TRIPLET}" = *'-haiku' ]]; then
 	export ac_cv_c_bigendian='no'
 fi
 
 for triplet in "${targets[@]}"; do
 	declare extra_configure_flags=''
 	
-	declare specs="%{!ftrivial-auto-var-init*:-ftrivial-auto-var-init=zero}"
+	declare specs='%{!Qy: -Qn}'
 	
-	if [ "${triplet}" = 'x86_64-unknown-freebsd12.3' ] || [ "${triplet}" = 'i386-unknown-freebsd12.3' ]; then
+	if [ "${triplet}" = 'x86_64-unknown-freebsd15.0' ] || [ "${triplet}" = 'i386-unknown-freebsd14.3' ]; then
 		declare specs+=' %{!fno-plt:%{!fplt:-fno-plt}}'
 	fi
 	
 	# Required due to https://reviews.freebsd.org/D20383
-	if [ "${triplet}" = 'powerpc64-unknown-freebsd13.0' ]; then
+	if [ "${triplet}" = 'powerpc64-unknown-freebsd15.0' ]; then
 		extra_configure_flags+=' --with-abi=elfv2'
-	fi
-	
-	if [ "${triplet}" = 'sparc64-unknown-freebsd12.3' ]; then
-		extra_configure_flags+=' --disable-libsanitizer'
 	fi
 	
 	if ! (( is_native )); then
@@ -490,7 +540,7 @@ for triplet in "${targets[@]}"; do
 	rm --force --recursive ./*
 	
 	# Required due to https://gcc.gnu.org/bugzilla/show_bug.cgi?id=78251
-	if [ "${triplet}" = 'riscv64-unknown-freebsd14.2' ]; then
+	if [ "${triplet}" = 'riscv64-unknown-freebsd15.0' ]; then
 		mv "${toolchain_directory}/${triplet}/include/unwind.h" "${toolchain_directory}/${triplet}/include/unwind.h.bak"
 	fi
 	
@@ -511,9 +561,7 @@ for triplet in "${targets[@]}"; do
 		--with-isl="${toolchain_directory}" \
 		--with-zstd="${toolchain_directory}" \
 		--with-system-zlib \
-		--with-bugurl='https://github.com/AmanoTeam/Loki/issues' \
 		--with-gcc-major-version-only \
-		--with-pkgversion="Loki v1.2-${revision}" \
 		--with-sysroot="${toolchain_directory}/${triplet}" \
 		--with-native-system-header-dir='/include' \
 		--with-default-libstdcxx-abi='new' \
@@ -521,7 +569,7 @@ for triplet in "${targets[@]}"; do
 		--enable-__cxa_atexit \
 		--enable-cet='auto' \
 		--enable-checking='release' \
-		--disable-default-pie \
+		--enable-default-pie \
 		--enable-default-ssp \
 		--disable-gnu-unique-object \
 		--enable-gnu-indirect-function \
@@ -530,7 +578,7 @@ for triplet in "${targets[@]}"; do
 		--enable-libstdcxx-filesystem-ts \
 		--enable-libstdcxx-static-eh-pool \
 		--with-libstdcxx-zoneinfo='static' \
-		--with-libstdcxx-lock-policy='auto' \
+		--with-libstdcxx-lock-policy='atomic' \
 		--enable-link-serialization='1' \
 		--enable-linker-build-id \
 		--enable-lto \
@@ -548,7 +596,6 @@ for triplet in "${targets[@]}"; do
 		--enable-libgomp \
 		--with-specs="${specs}" \
 		--with-pic \
-		--disable-c++-tools \
 		--disable-fixincludes \
 		--disable-libstdcxx-pch \
 		--disable-werror \
@@ -570,6 +617,7 @@ for triplet in "${targets[@]}"; do
 	env ${args} make \
 		CFLAGS_FOR_TARGET="${ccflags} ${linkflags}" \
 		CXXFLAGS_FOR_TARGET="${ccflags} ${linkflags}" \
+		LDFLAGS_FOR_TARGET="${linkflags}" \
 		gcc_cv_objdump="${CROSS_COMPILE_TRIPLET}-objdump" \
 		all --jobs="${max_jobs}"
 	make install
@@ -594,15 +642,7 @@ for triplet in "${targets[@]}"; do
 		ln --symbolic "../../libexec/gcc/${triplet}/"*'/liblto_plugin.so' './'
 	fi
 	
-	if [ "${CROSS_COMPILE_TRIPLET}" = "${triplet}" ]; then
-		ln \
-			--symbolic \
-			--relative \
-			"${toolchain_directory}/${triplet}/include/c++" \
-			"${toolchain_directory}/include"
-	fi
-	
-	if [ "${triplet}" = 'riscv64-unknown-freebsd14.2' ]; then
+	if [ "${triplet}" = 'riscv64-unknown-freebsd15.0' ]; then
 		mv "${toolchain_directory}/${triplet}/include/unwind.h.bak" "${toolchain_directory}/${triplet}/include/unwind.h"
 	fi
 done
@@ -640,18 +680,31 @@ if ! (( is_native )); then
 	
 	cp "${name}" "${toolchain_directory}/lib/${soname}"
 	
-	# OpenBSD does not have a libgcc library
-	if [[ "${CROSS_COMPILE_TRIPLET}" != *'-openbsd'* ]]; then
-		# libgcc_s
-		declare name=$(realpath $("${cc}" --print-file-name='libgcc_s.so.1'))
-		
-		# libegcc
-		if ! [ -f "${name}" ]; then
-			declare name=$(realpath $("${cc}" --print-file-name='libegcc.so'))
-		fi
-		
+	# libgcc_s
+	declare name=$(realpath $("${cc}" --print-file-name='libgcc_s.so.1'))
+	
+	# libegcc
+	if ! [ -f "${name}" ]; then
+		declare name=$(realpath $("${cc}" --print-file-name='libegcc.so'))
+	fi
+	
+	declare soname=$("${readelf}" -d "${name}" | grep 'SONAME' | sed --regexp-extended 's/.+\[(.+)\]/\1/g')
+	
+	cp "${name}" "${toolchain_directory}/lib/${soname}"
+	
+	# libiconv
+	declare name=$(realpath $("${cc}" --print-file-name='libiconv.so'))
+	
+	if [ -f "${name}" ]; then
 		declare soname=$("${readelf}" -d "${name}" | grep 'SONAME' | sed --regexp-extended 's/.+\[(.+)\]/\1/g')
-		
+		cp "${name}" "${toolchain_directory}/lib/${soname}"
+	fi
+	
+	# libcharset
+	declare name=$(realpath $("${cc}" --print-file-name='libcharset.so'))
+	
+	if [ -f "${name}" ]; then
+		declare soname=$("${readelf}" -d "${name}" | grep 'SONAME' | sed --regexp-extended 's/.+\[(.+)\]/\1/g')
 		cp "${name}" "${toolchain_directory}/lib/${soname}"
 	fi
 fi
