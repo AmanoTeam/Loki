@@ -57,7 +57,7 @@ declare -ra targets=(
 	'x86_64-unknown-freebsd15.0'
 	'aarch64-unknown-freebsd15.0'
 	'i386-unknown-freebsd14.3'
-	'powerpc-unknown-freebsd15.0'
+	'powerpc-unknown-freebsd14.3'
 	'powerpc64-unknown-freebsd15.0'
 	'riscv64-unknown-freebsd15.0'
 )
@@ -520,6 +520,8 @@ for triplet in "${targets[@]}"; do
 	declare sysroot_url="https://github.com/AmanoTeam/freebsd-sysroot/releases/latest/download/${triplet}.tar.xz"
 	declare sysroot_file="${PWD}/${triplet}.tar.xz"
 	declare sysroot_directory="${PWD}/${triplet}"
+	
+	echo "${sysroot_url}"
 	
 	curl \
 		--url "${sysroot_url}" \
