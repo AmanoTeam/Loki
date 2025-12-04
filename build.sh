@@ -615,8 +615,8 @@ for triplet in "${targets[@]}"; do
 	fi
 	
 	env ${args} make \
-		CFLAGS_FOR_TARGET="${ccflags} ${linkflags}" \
-		CXXFLAGS_FOR_TARGET="${ccflags} ${linkflags}" \
+		CFLAGS_FOR_TARGET="${ccflags} ${linkflags} -Wl,-rpath-link,${toolchain_directory}/${triplet}/lib" \
+		CXXFLAGS_FOR_TARGET="${ccflags} ${linkflags} -Wl,-rpath-link,${toolchain_directory}/${triplet}/lib" \
 		LDFLAGS_FOR_TARGET="${linkflags}" \
 		gcc_cv_objdump="${CROSS_COMPILE_TRIPLET}-objdump" \
 		all --jobs="${max_jobs}"
