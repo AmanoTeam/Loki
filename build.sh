@@ -540,9 +540,7 @@ for triplet in "${targets[@]}"; do
 	rm --force --recursive ./*
 	
 	# Required due to https://gcc.gnu.org/bugzilla/show_bug.cgi?id=78251
-	if [ "${triplet}" = 'riscv64-unknown-freebsd15.0' ]; then
-		mv "${toolchain_directory}/${triplet}/include/unwind.h" "${toolchain_directory}/${triplet}/include/unwind.h.bak"
-	fi
+	mv "${toolchain_directory}/${triplet}/include/unwind.h" "${toolchain_directory}/${triplet}/include/unwind.h.bak"
 	
 	[ -d "${gcc_directory}/build" ] || mkdir "${gcc_directory}/build"
 	
@@ -642,9 +640,7 @@ for triplet in "${targets[@]}"; do
 		ln --symbolic "../../libexec/gcc/${triplet}/"*'/liblto_plugin.so' './'
 	fi
 	
-	if [ "${triplet}" = 'riscv64-unknown-freebsd15.0' ]; then
-		mv "${toolchain_directory}/${triplet}/include/unwind.h.bak" "${toolchain_directory}/${triplet}/include/unwind.h"
-	fi
+	mv "${toolchain_directory}/${triplet}/include/unwind.h.bak" "${toolchain_directory}/${triplet}/include/unwind.h"
 done
 
 # Delete libtool files and other unnecessary files GCC installs
