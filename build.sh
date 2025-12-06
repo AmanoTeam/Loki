@@ -495,7 +495,7 @@ for triplet in "${targets[@]}"; do
 		extra_configure_flags+=" --with-toolexeclibdir=${toolchain_directory}/${triplet}/lib/"
 	fi
 	
-	if [[ "${host}" != *'-darwin'* ]]; then
+	if [[ "${CROSS_COMPILE_TRIPLET}" != *'-darwin'* ]]; then
 		extra_configure_flags+=' --enable-host-bind-now'
 	fi
 	
