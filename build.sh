@@ -681,7 +681,7 @@ if ! (( is_native )); then
 fi
 
 # Bundle both libstdc++ and libgcc within host tools
-if ! (( is_native )); then
+if ! (( is_native )) && [[ "${CROSS_COMPILE_TRIPLET}" != *'-darwin'* ]]; then
 	[ -d "${toolchain_directory}/lib" ] || mkdir "${toolchain_directory}/lib"
 	
 	# libstdc++
