@@ -55,11 +55,11 @@ declare -ra plugin_libraries=(
 
 declare -ra targets=(
 	'x86_64-unknown-freebsd15.0'
-	'aarch64-unknown-freebsd15.0'
-	'i386-unknown-freebsd14.3'
-	'powerpc-unknown-freebsd14.3'
-	'powerpc64-unknown-freebsd15.0'
-	'riscv64-unknown-freebsd15.0'
+	# 'aarch64-unknown-freebsd15.0'
+	# 'i386-unknown-freebsd14.3'
+	# 'powerpc-unknown-freebsd14.3'
+	# 'powerpc64-unknown-freebsd15.0'
+	# 'riscv64-unknown-freebsd15.0'
 )
 
 declare -r PKG_CONFIG_PATH="${toolchain_directory}/lib/pkgconfig"
@@ -621,6 +621,13 @@ for triplet in "${targets[@]}"; do
 	make install
 	
 	rm "${toolchain_directory}/bin/${triplet}-${triplet}-"* || true
+	
+	for source in "${toolchain_directory}/bin/${triplet}-"*; do
+		destination="${source/15.0/}"
+		destination="${destination/14.3/}"
+		
+		ln --symbolic --relative "${source}" "${destination}"
+	done
 	
 	cd "${toolchain_directory}/${triplet}/lib64" 2>/dev/null || cd "${toolchain_directory}/${triplet}/lib"
 	
