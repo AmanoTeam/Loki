@@ -403,6 +403,7 @@ fi
 ../configure \
 	--host="${CROSS_COMPILE_TRIPLET}" \
 	--prefix="${toolchain_directory}" \
+	--with-gmp-prefix="${toolchain_directory}" \
 	--enable-shared \
 	--disable-static \
 	--with-pic \
