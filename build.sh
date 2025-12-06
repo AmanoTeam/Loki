@@ -394,16 +394,21 @@ done
 cd "${isl_directory}/build"
 rm --force --recursive ./*
 
+declare isl_ldflags=''
+
+if [[ "${CROSS_COMPILE_TRIPLET}" != *'-darwin'* ]]; then
+	isl_ldflags+=" -Xlinker -rpath-link -Xlinker ${toolchain_directory}/lib"
+fi
+
 ../configure \
 	--host="${CROSS_COMPILE_TRIPLET}" \
 	--prefix="${toolchain_directory}" \
-	--with-gmp-prefix="${toolchain_directory}" \
 	--enable-shared \
 	--disable-static \
 	--with-pic \
 	CFLAGS="${ccflags}" \
 	CXXFLAGS="${ccflags}" \
-	LDFLAGS="${linkflags}"
+	LDFLAGS="${linkflags} ${isl_ldflags}"
 
 make all --jobs
 make install
