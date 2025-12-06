@@ -55,11 +55,11 @@ declare -ra plugin_libraries=(
 
 declare -ra targets=(
 	'x86_64-unknown-freebsd15.0'
-	# 'aarch64-unknown-freebsd15.0'
-	# 'i386-unknown-freebsd14.3'
-	# 'powerpc-unknown-freebsd14.3'
-	# 'powerpc64-unknown-freebsd15.0'
-	# 'riscv64-unknown-freebsd15.0'
+	'aarch64-unknown-freebsd15.0'
+	'i386-unknown-freebsd14.3'
+	'powerpc-unknown-freebsd14.3'
+	'powerpc64-unknown-freebsd15.0'
+	'riscv64-unknown-freebsd15.0'
 )
 
 declare -r PKG_CONFIG_PATH="${toolchain_directory}/lib/pkgconfig"
@@ -495,6 +495,10 @@ for triplet in "${targets[@]}"; do
 		extra_configure_flags+=" --with-toolexeclibdir=${toolchain_directory}/${triplet}/lib/"
 	fi
 	
+	if [[ "${host}" != *'-darwin'* ]]; then
+		extra_configure_flags+=' --enable-host-bind-now'
+	fi
+	
 	[ -d "${binutils_directory}/build" ] || mkdir "${binutils_directory}/build"
 	
 	cd "${binutils_directory}/build"
@@ -600,7 +604,6 @@ for triplet in "${targets[@]}"; do
 		--enable-cxx-flags="${linkflags}" \
 		--enable-host-pie \
 		--enable-host-shared \
-		--enable-host-bind-now \
 		--enable-libgomp \
 		--with-specs="${specs}" \
 		--with-pic \
