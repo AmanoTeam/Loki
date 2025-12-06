@@ -385,6 +385,10 @@ cd "${mpc_directory}/build"
 make all --jobs
 make install
 
+for name in "${isl_directory}/isl_test"*; do
+	echo 'int main() {}' > "${name}"
+done
+
 [ -d "${isl_directory}/build" ] || mkdir "${isl_directory}/build"
 
 cd "${isl_directory}/build"
@@ -399,7 +403,7 @@ rm --force --recursive ./*
 	--with-pic \
 	CFLAGS="${ccflags}" \
 	CXXFLAGS="${ccflags}" \
-	LDFLAGS="-Xlinker -rpath-link -Xlinker ${toolchain_directory}/lib ${linkflags}"
+	LDFLAGS="${linkflags}"
 
 make all --jobs
 make install
