@@ -11,6 +11,8 @@ declare -r workdir="${PWD}"
 
 declare -r revision="$(git rev-parse --short HEAD)"
 
+declare -r gcc_major='15'
+
 declare -r gmp_tarball='/tmp/gmp.tar.xz'
 declare -r gmp_directory='/tmp/gmp-6.3.0'
 
@@ -27,7 +29,7 @@ declare -r binutils_tarball='/tmp/binutils.tar.xz'
 declare -r binutils_directory='/tmp/binutils'
 
 declare -r gcc_tarball='/tmp/gcc.tar.xz'
-declare -r gcc_directory='/tmp/gcc-releases-gcc-15'
+declare -r gcc_directory="/tmp/gcc-releases-gcc-${gcc_major}"
 
 declare -r zlib_tarball='/tmp/zlib.tar.gz'
 declare -r zlib_directory='/tmp/zlib-develop'
@@ -178,6 +180,10 @@ if ! [ -f "${isl_tarball}" ]; then
 		--file="${isl_tarball}"
 	
 	patch --directory="${isl_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Remove-hardcoded-RPATH-and-versioned-SONAME-from-libisl.patch"
+	
+	for name in "${isl_directory}/isl_test"*; do
+		echo 'int main() {}' > "${name}"
+	done
 fi
 
 if ! [ -f "${binutils_tarball}" ]; then
@@ -252,7 +258,7 @@ fi
 
 if ! [ -f "${gcc_tarball}" ]; then
 	curl \
-		--url 'https://github.com/gcc-mirror/gcc/archive/refs/heads/releases/gcc-15.tar.gz' \
+		--url "https://github.com/gcc-mirror/gcc/archive/refs/heads/releases/gcc-${gcc_major}.tar.gz" \
 		--retry '30' \
 		--retry-all-errors \
 		--retry-delay '0' \
@@ -289,6 +295,9 @@ if ! [ -f "${gcc_tarball}" ]; then
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0007-Add-relative-RPATHs-to-GCC-host-tools.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0008-Add-ARM-and-ARM64-drivers-to-OpenBSD-host-tools.patch"
 	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0009-Fix-missing-stdint.h-include-when-compiling-host-tools-on-OpenBSD.patch"
+	
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-AArch64-enable-libquadmath.patch"
+	patch --directory="${gcc_directory}" --strip='1' --input="${workdir}/submodules/obggcc/patches/0001-Prevent-libstdc-from-trying-to-implement-math-stubs.patch"
 fi
 
 # Follow Debian's approach to remove hardcoded RPATHs from binaries
@@ -385,10 +394,6 @@ cd "${mpc_directory}/build"
 make all --jobs
 make install
 
-for name in "${isl_directory}/isl_test"*; do
-	echo 'int main() {}' > "${name}"
-done
-
 [ -d "${isl_directory}/build" ] || mkdir "${isl_directory}/build"
 
 cd "${isl_directory}/build"
@@ -482,7 +487,7 @@ for triplet in "${targets[@]}"; do
 	declare specs='%{!Qy: -Qn}'
 	
 	if [ "${triplet}" = 'x86_64-unknown-freebsd15.0' ] || [ "${triplet}" = 'i386-unknown-freebsd14.3' ]; then
-		declare specs+=' %{!fno-plt:%{!fplt:-fno-plt}}'
+		declare specs+=' %{!fno-plt: %{!fplt: -fno-plt}}'
 	fi
 	
 	# Required due to https://reviews.freebsd.org/D20383
@@ -566,7 +571,7 @@ for triplet in "${targets[@]}"; do
 		--host="${CROSS_COMPILE_TRIPLET}" \
 		--target="${triplet}" \
 		--prefix="${toolchain_directory}" \
-		--with-linker-hash-style='both' \
+		--with-linker-hash-style='gnu' \
 		--with-gmp="${toolchain_directory}" \
 		--with-mpc="${toolchain_directory}" \
 		--with-mpfr="${toolchain_directory}" \
@@ -582,7 +587,7 @@ for triplet in "${targets[@]}"; do
 		--enable-cet='auto' \
 		--enable-checking='release' \
 		--disable-default-pie \
-		--enable-default-ssp \
+		--disable-default-ssp \
 		--disable-gnu-unique-object \
 		--enable-gnu-indirect-function \
 		--enable-languages='c,c++' \
@@ -605,6 +610,7 @@ for triplet in "${targets[@]}"; do
 		--enable-host-pie \
 		--enable-host-shared \
 		--enable-libgomp \
+		--enable-tls \
 		--with-specs="${specs}" \
 		--with-pic \
 		--disable-fixincludes \
@@ -632,6 +638,8 @@ for triplet in "${targets[@]}"; do
 		gcc_cv_objdump="${CROSS_COMPILE_TRIPLET}-objdump" \
 		all --jobs="${max_jobs}"
 	make install
+	
+	cat "${workdir}/submodules/obggcc/patches/c++config.h" >> "${toolchain_directory}/${triplet}/include/c++/${gcc_major}/${triplet}/bits/c++config.h"
 	
 	rm "${toolchain_directory}/bin/${triplet}-${triplet}-"* || true
 	
@@ -664,7 +672,12 @@ for triplet in "${targets[@]}"; do
 done
 
 # Delete libtool files and other unnecessary files GCC installs
-rm --force --recursive "${toolchain_directory}/share"
+rm \
+	--force \
+	--recursive \
+	"${toolchain_directory}/share" \
+	"${toolchain_directory}/lib/lib"*'.a' \
+	"${toolchain_directory}/include"
 
 find \
 	"${toolchain_directory}" \
