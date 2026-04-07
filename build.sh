@@ -58,7 +58,7 @@ declare -ra plugin_libraries=(
 declare -ra targets=(
 	'x86_64-unknown-freebsd15.0'
 	'aarch64-unknown-freebsd15.0'
-	'i386-unknown-freebsd14.3'
+	'i386-unknown-freebsd14.4'
 )
 
 declare -r PKG_CONFIG_PATH="${toolchain_directory}/lib/pkgconfig"
@@ -497,7 +497,7 @@ for triplet in "${targets[@]}"; do
 	
 	declare specs='%{!Qy: -Qn}'
 	
-	if [ "${triplet}" = 'x86_64-unknown-freebsd15.0' ] || [ "${triplet}" = 'i386-unknown-freebsd14.3' ]; then
+	if [ "${triplet}" = 'x86_64-unknown-freebsd15.0' ] || [ "${triplet}" = 'i386-unknown-freebsd14.4' ]; then
 		declare specs+=' %{!fno-plt: %{!fplt: -fno-plt}}'
 	fi
 	
@@ -652,7 +652,7 @@ for triplet in "${targets[@]}"; do
 	
 	for source in "${toolchain_directory}/bin/${triplet}-"*; do
 		destination="${source/15.0/}"
-		destination="${destination/14.3/}"
+		destination="${destination/14.4/}"
 		
 		ln --symbolic --relative "${source}" "${destination}"
 	done
