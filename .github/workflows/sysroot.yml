@@ -1,4 +1,4 @@
-name: Build
+name: System roots
 
 on:
   push:
@@ -17,7 +17,7 @@ jobs:
         submodules: true
     - name: Generate system roots
       run: |
-        bash './main.sh'
+        bash './sysroot.sh'
     - name: Upload artifact
       uses: actions/upload-artifact@main
       with:
