@@ -1,8 +1,6 @@
 name: Build
 
 on:
-  schedule:
-    - cron: '0 8 * * *'
   workflow_dispatch:
     branches:
         - '**'
@@ -22,7 +20,7 @@ jobs:
       id: check-cache
       uses: actions/cache@main
       with:
-        key: gcc-15.2.1
+        key: gcc-15
         lookup-only: true
         path: |
           /tmp/x86_64-linux-gnu.tar.xz
@@ -59,7 +57,7 @@ jobs:
       if: ${{ steps.check-cache.outputs.cache-hit != 'true' }}
       uses: actions/cache@main
       with:
-        key: gcc-15.2.1
+        key: gcc-15
         path: |
           /tmp/x86_64-linux-gnu.tar.xz
           /tmp/x86_64-linux-gnu.tar.xz.sha256
@@ -121,7 +119,7 @@ jobs:
     - name: Restore from cache
       uses: actions/cache@main
       with:
-        key: gcc-15.2.1
+        key: gcc-15
         fail-on-cache-miss: true
         path: |
           /tmp/x86_64-linux-gnu.tar.xz
@@ -145,7 +143,7 @@ jobs:
             export RAIDEN_HOME='/tmp/raiden'
             export PATH="${RAIDEN_HOME}/bin:${PATH}"
             
-            source "${RAIDEN_HOME}/usr/local/share/raiden/autotools/${{ matrix.target }}.sh"
+            source "${RAIDEN_HOME}/build/autotools/${{ matrix.target }}.sh"
         elif [[ '${{ matrix.target }}' = *'-linux-gnu'* ]]; then
             declare -r OBGGCC_TAG='gcc-15'
             declare -r OBGGCC_TARBALL='/tmp/toolchain.tar.xz'
@@ -157,7 +155,7 @@ jobs:
             export OBGGCC_HOME='/tmp/obggcc'
             export PATH="${OBGGCC_HOME}/bin:${PATH}"
             
-            source "${OBGGCC_HOME}/usr/local/share/obggcc/autotools/${{ matrix.target }}.sh"
+            source "${OBGGCC_HOME}/build/autotools/${{ matrix.target }}.sh"
         elif [[ '${{ matrix.target }}' = *'-freebsd' ]]; then
             # declare -r LOKI_TAG='gcc-15'
             # declare -r LOKI_TARBALL='/tmp/toolchain.tar.xz'
@@ -169,7 +167,7 @@ jobs:
             # export LOKI_HOME='/tmp/loki'
             export PATH="${LOKI_HOME}/bin:${PATH}"
             
-            source "${LOKI_HOME}/usr/local/share/loki/autotools/${{ matrix.target }}.sh"
+            source "${LOKI_HOME}/build/autotools/${{ matrix.target }}.sh"
         elif [[ '${{ matrix.target }}' = *'-netbsd'* ]]; then
             declare -r DAKINI_TAG='gcc-15'
             declare -r DAKINI_TARBALL='/tmp/toolchain.tar.xz'
@@ -181,7 +179,7 @@ jobs:
             export DAKINI_HOME='/tmp/dakini'
             export PATH="${DAKINI_HOME}/bin:${PATH}"
             
-            source "${DAKINI_HOME}/usr/local/share/dakini/autotools/${{ matrix.target }}.sh"
+            source "${DAKINI_HOME}/build/autotools/${{ matrix.target }}.sh"
         elif [[ '${{ matrix.target }}' = *'-dragonfly' ]]; then
             declare -r VENTI_TAG='gcc-15'
             declare -r VENTI_TARBALL='/tmp/toolchain.tar.xz'
@@ -193,7 +191,7 @@ jobs:
             export VENTI_HOME='/tmp/venti'
             export PATH="${VENTI_HOME}/bin:${PATH}"
             
-            source "${VENTI_HOME}/usr/local/share/venti/autotools/${{ matrix.target }}.sh"
+            source "${VENTI_HOME}/build/autotools/${{ matrix.target }}.sh"
         elif [[ '${{ matrix.target }}' = *'-haiku' ]]; then
             declare -r SIL_TAG='gcc-15'
             declare -r SIL_TARBALL='/tmp/toolchain.tar.xz'
@@ -205,7 +203,7 @@ jobs:
             export SIL_HOME='/tmp/sil'
             export PATH="${SIL_HOME}/bin:${PATH}"
             
-            source "${SIL_HOME}/usr/local/share/sil/autotools/${{ matrix.target }}.sh"
+            source "${SIL_HOME}/build/autotools/${{ matrix.target }}.sh"
         elif [[ '${{ matrix.target }}' = *'-android'* ]]; then
             declare -r PINO_TAG='gcc-15'
             declare -r PINO_TARBALL='/tmp/toolchain.tar.xz'
@@ -217,7 +215,7 @@ jobs:
             export PINO_HOME='/tmp/pino'
             export PATH="${PINO_HOME}/bin:${PATH}"
             
-            source "${PINO_HOME}/usr/local/share/pino/autotools/${{ matrix.target }}.sh"
+            source "${PINO_HOME}/build/autotools/${{ matrix.target }}.sh"
         elif [[ '${{ matrix.target }}' = *'-darwin' ]]; then
             curl \
                 --silent \
@@ -229,7 +227,7 @@ jobs:
             export DARWIN_HOME='/tmp/darwin'
             export PATH="${DARWIN_HOME}/bin:${PATH}"
             
-            source "${DARWIN_HOME}/usr/local/share/darwin/autotools/${{ matrix.target }}.sh"
+            source "${DARWIN_HOME}/build/autotools/${{ matrix.target }}.sh"
         fi
         
         bash './build.sh' '${{ matrix.target }}'

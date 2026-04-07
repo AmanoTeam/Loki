@@ -613,6 +613,7 @@ for triplet in "${targets[@]}"; do
 		--enable-host-shared \
 		--enable-libgomp \
 		--enable-tls \
+		--enable-libstdcxx-verbose \
 		--with-specs="${specs}" \
 		--with-pic \
 		--with-gnu-as \
@@ -623,10 +624,8 @@ for triplet in "${targets[@]}"; do
 		--disable-fixincludes \
 		--disable-libstdcxx-pch \
 		--disable-werror \
-		--disable-bootstrap \
 		--disable-multilib \
 		--disable-canonical-system-headers \
-		--disable-libstdcxx-verbose \
 		--without-static-standard-libraries \
 		${extra_configure_flags} \
 		CFLAGS="${ccflags}" \
@@ -647,7 +646,7 @@ for triplet in "${targets[@]}"; do
 		all --jobs="${max_jobs}"
 	make install
 	
-	cat "${workdir}/submodules/obggcc/patches/c++config.h" >> "${toolchain_directory}/${triplet}/include/c++/${gcc_major}/${triplet}/bits/c++config.h"
+	cat "${workdir}/patches/c++config.h" >> "${toolchain_directory}/${triplet}/include/c++/${gcc_major}/${triplet}/bits/c++config.h"
 	
 	rm "${toolchain_directory}/bin/${triplet}-${triplet}-"* || true
 	
@@ -703,6 +702,8 @@ if ! (( is_native )); then
 	cc="${CC}"
 	readelf="${READELF}"
 fi
+
+cd "${workdir}"
 
 # Bundle both libstdc++ and libgcc within host tools
 if ! (( is_native )) && [[ "${CROSS_COMPILE_TRIPLET}" != *'-darwin'* ]]; then
