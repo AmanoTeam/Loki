@@ -56,8 +56,8 @@ declare -ra plugin_libraries=(
 )
 
 declare -ra targets=(
-	'x86_64-unknown-freebsd15.0'
-	'aarch64-unknown-freebsd15.0'
+	# 'x86_64-unknown-freebsd15.0'
+	# 'aarch64-unknown-freebsd15.0'
 	'i386-unknown-freebsd14.4'
 )
 

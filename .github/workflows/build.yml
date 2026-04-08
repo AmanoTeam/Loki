@@ -53,6 +53,15 @@ jobs:
         declare tarball_filename='/tmp/x86_64-linux-gnu.tar.xz'
         tar --directory='/tmp' --create --file=- 'loki' | xz --threads='0' --compress -9 > "${tarball_filename}"
         sha256sum "${tarball_filename}" | sed 's|/tmp/||' > "${tarball_filename}.sha256"
+    - name: Upload artifact
+      if: ${{ steps.check-cache.outputs.cache-hit != 'true' }}
+      uses: actions/upload-artifact@main
+      with:
+        name: native-toolchain
+        if-no-files-found: error
+        path: |
+          /tmp/x86_64-linux-gnu.tar.xz
+          /tmp/x86_64-linux-gnu.tar.xz.sha256
     - name: Cache artifact
       if: ${{ steps.check-cache.outputs.cache-hit != 'true' }}
       uses: actions/cache@main
