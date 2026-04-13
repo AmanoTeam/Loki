@@ -615,12 +615,13 @@ for triplet in "${targets[@]}"; do
 		--enable-tls \
 		--enable-libstdcxx-verbose \
 		--enable-default-pie \
+		--enable-default-ssp \
 		--with-specs="${specs}" \
 		--with-pic \
 		--with-gnu-as \
 		--with-gnu-ld \
 		--disable-gnu-unique-object \
-		--disable-default-ssp \
+		--disable-libssp \
 		--disable-fixincludes \
 		--disable-libstdcxx-pch \
 		--disable-werror \
