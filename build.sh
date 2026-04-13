@@ -495,7 +495,7 @@ fi
 for triplet in "${targets[@]}"; do
 	declare extra_configure_flags=''
 	
-	declare specs='%{!Qy: -Qn}'
+	declare specs='%{!fno-pic: %{!fno-PIC: %{!fpic: %{!fPIC: -fpic}}}} %{!Qy: -Qn}'
 	
 	if [ "${triplet}" = 'x86_64-unknown-freebsd15.0' ] || [ "${triplet}" = 'i386-unknown-freebsd14.4' ]; then
 		declare specs+=' %{!fno-plt: %{!fplt: -fno-plt}}'
@@ -614,12 +614,12 @@ for triplet in "${targets[@]}"; do
 		--enable-libgomp \
 		--enable-tls \
 		--enable-libstdcxx-verbose \
+		--enable-default-pie \
 		--with-specs="${specs}" \
 		--with-pic \
 		--with-gnu-as \
 		--with-gnu-ld \
 		--disable-gnu-unique-object \
-		--disable-default-pie \
 		--disable-default-ssp \
 		--disable-fixincludes \
 		--disable-libstdcxx-pch \
