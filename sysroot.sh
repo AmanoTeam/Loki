@@ -10,12 +10,12 @@ declare -r temporary_directory='/tmp/freebsd-sysroot'
 cd "${temporary_directory}"
 
 declare -r targets=(
-	'riscv/riscv64'
+	# 'riscv/riscv64'
 	'amd64'
 	'arm64'
 	'i386'
-	'powerpc/powerpc'
-	'powerpc/powerpc64'
+	# 'powerpc/powerpc'
+	# 'powerpc/powerpc64'
 )
 
 for target in "${targets[@]}"; do
@@ -99,7 +99,7 @@ for target in "${targets[@]}"; do
 	
 	chmod 777 './libc.so'
 	
-	echo 'GROUP ( libc.so.7 libc_nonshared.a )' > './libc.so'
+	echo 'GROUP ( libc.so.7 libc_nonshared.a AS_NEEDED ( libssp_nonshared.a ) )' > './libc.so'
 	
 	chmod 444 './libc.so'
 	

@@ -497,7 +497,7 @@ for triplet in "${targets[@]}"; do
 	
 	declare specs='%{!fno-pic: %{!fno-PIC: %{!fpic: %{!fPIC: -fpic}}}} %{!Qy: -Qn}'
 	
-	if [ "${triplet}" = 'x86_64-unknown-freebsd15.0' ] || [ "${triplet}" = 'i386-unknown-freebsd14.4' ]; then
+	if [[ "${triplet}" = 'x86_64-unknown-freebsd'* ]] || [[ "${triplet}" = 'i386-unknown-freebsd'* ]]; then
 		declare specs+=' %{!fno-plt: %{!fplt: -fno-plt}}'
 	fi
 	
